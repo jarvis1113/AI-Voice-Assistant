@@ -103,6 +103,8 @@ export default function VoiceInput() {
         'no-speech': '未偵測到語音，請重試',
         'audio-capture': '無法存取麥克風，請檢查權限',
         'network': '網路連線錯誤，請重試',
+        'aborted': '錄音已中止，請重試',
+        'service-not-allowed': '語音辨識服務不可用',
       };
       const errorMsg = errorMessages[event.error] || `語音辨識錯誤: ${event.error}`;
       setError(errorMsg);
@@ -293,7 +295,7 @@ export default function VoiceInput() {
                 onTouchStart={handleMicMouseDown}
                 onTouchEnd={handleMicMouseUp}
                 disabled={isProcessing}
-                className={`w-24 h-24 rounded-full shadow-lg transition-all transform active:scale-95 ${
+                className={`w-24 h-24 rounded-full shadow-lg transition-all transform active:scale-95 hover:scale-110 hover:shadow-xl ${
                   isListening
                     ? 'bg-red-500 hover:bg-red-600 scale-110 animate-pulse'
                     : 'bg-primary hover:bg-pink-700'
@@ -354,10 +356,10 @@ export default function VoiceInput() {
                     onClick={handleCopy}
                     variant="outline"
                     size="sm"
-                    className={`gap-2 ${isCopied ? 'bg-green-50 border-green-300' : ''}`}
+                    className={`gap-2 transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${isCopied ? 'bg-green-50 border-green-300' : ''}`}
                   >
                     <Copy className="w-4 h-4" />
-                    {isCopied ? '已複製' : '複製'}
+                    {isCopied ? '✓ 已複製' : '複製'}
                   </Button>
                 </div>
                 <Textarea
@@ -366,7 +368,7 @@ export default function VoiceInput() {
                   className="bg-green-50 border-green-200 text-foreground font-semibold resize-none"
                   rows={3}
                 />
-                <p className="text-xs text-muted-foreground">💡 提示：按 Ctrl+V 或 Cmd+V 即可在其他網頁貼上</p>
+
               </div>
             )}
 
@@ -374,26 +376,15 @@ export default function VoiceInput() {
             <Button
               onClick={handlePictureInPicture}
               variant="outline"
-              className="w-full gap-2 border-primary text-primary hover:bg-pink-50"
+              className="w-full gap-2 border-primary text-primary hover:bg-pink-50 transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95"
             >
               <Volume2 className="w-4 h-4" />
-              📌 變成懸浮小視窗
+              🪟 懸浮小視窗
             </Button>
           </CardContent>
         </Card>
 
-        {/* Tips Section */}
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="pt-6">
-            <h3 className="font-semibold text-foreground mb-3">💡 使用小貼士</h3>
-            <ul className="space-y-2 text-sm text-foreground">
-              <li>✓ 清晰說話，一次一句效果最好</li>
-              <li>✓ 說完後自動修正，無需手動確認</li>
-              <li>✓ 修正結果會自動複製，直接貼上即可</li>
-              <li>✓ 點擊「懸浮小視窗」可在其他網頁上方使用</li>
-            </ul>
-          </CardContent>
-        </Card>
+
       </div>
     </div>
   );
