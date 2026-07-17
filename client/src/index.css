@@ -43,33 +43,34 @@
 }
 
 :root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.235 0.015 65);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
+  /* Macaron color palette for voice helper */
+  --primary: #FF6B9D;  /* Soft pink */
+  --primary-foreground: #FFFFFF;
+  --sidebar-primary: #FF6B9D;
+  --sidebar-primary-foreground: #FFFFFF;
+  --chart-1: #A8E6CF;  /* Soft green */
+  --chart-2: #FFD3B6;  /* Soft peach */
+  --chart-3: #FFAAA5;  /* Soft coral */
+  --chart-4: #FF8B94;  /* Soft rose */
+  --chart-5: #FFB3BA;  /* Soft pink-red */
+  --radius: 1rem;  /* Larger border radius for macaron style */
+  --background: #FAFBFC;  /* Very light blue-gray */
+  --foreground: #2C3E50;  /* Dark blue-gray */
+  --card: #FFFFFF;  /* Pure white */
+  --card-foreground: #2C3E50;
+  --popover: #FFFFFF;
+  --popover-foreground: #2C3E50;
+  --secondary: #A8E6CF;  /* Soft green */
+  --secondary-foreground: #2C3E50;
+  --muted: #E8F4F8;  /* Very light cyan */
+  --muted-foreground: #7F8C8D;  /* Medium gray */
+  --accent: #FFD3B6;  /* Soft peach */
+  --accent-foreground: #2C3E50;
+  --destructive: #E74C3C;  /* Warm red */
+  --destructive-foreground: #FFFFFF;
+  --border: #E0E6ED;  /* Light gray-blue */
+  --input: #FFFFFF;
+  --ring: #FF6B9D;  /* Soft pink for focus ring */
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.235 0.015 65);
   --sidebar-accent: oklch(0.967 0.001 286.375);
@@ -79,27 +80,27 @@
 }
 
 .dark {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-500);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.85 0.005 65);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.85 0.005 65);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.85 0.005 65);
-  --secondary: oklch(0.24 0.006 286.033);
-  --secondary-foreground: oklch(0.7 0.005 65);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground:  oklch(0.92 0.005 65);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.488 0.243 264.376);
+  --primary: #FF6B9D;  /* Soft pink */
+  --primary-foreground: #FFFFFF;
+  --sidebar-primary: #FF6B9D;
+  --sidebar-primary-foreground: #FFFFFF;
+  --background: #1A1F2E;  /* Dark blue-gray */
+  --foreground: #E8EEF5;  /* Light gray-blue */
+  --card: #252D3D;  /* Slightly lighter dark */
+  --card-foreground: #E8EEF5;
+  --popover: #252D3D;
+  --popover-foreground: #E8EEF5;
+  --secondary: #A8E6CF;  /* Soft green */
+  --secondary-foreground: #E8EEF5;
+  --muted: #3A4557;  /* Medium dark gray */
+  --muted-foreground: #A0A8B8;  /* Light gray */
+  --accent: #FFD3B6;  /* Soft peach */
+  --accent-foreground: #1A1F2E;
+  --destructive: #E74C3C;  /* Warm red */
+  --destructive-foreground: #FFFFFF;
+  --border: #3A4557;  /* Medium dark gray */
+  --input: #252D3D;  /* Slightly lighter dark */
+  --ring: #FF6B9D;  /* Soft pink for focus ring */
   --chart-1: var(--color-blue-300);
   --chart-2: var(--color-blue-500);
   --chart-3: var(--color-blue-600);
