@@ -172,25 +172,47 @@ export default function VoiceInput() {
     setAudioLevels(Array(20).fill(0));
   };
 
-  // Handle microphone button
-  const handleMicClick = () => {
-    if (isListening) {
-      (recognitionRef.current as any)?.stop?.();
-    } else {
+  // Handle microphone button - start on mouse/touch down, stop on mouse/touch up
+  const handleMicMouseDown = () => {
+    if (!isListening && !isProcessing) {
       (recognitionRef.current as any)?.start?.();
     }
   };
 
-  // Handle copy button
+  const handleMicMouseUp = () => {
+    if (isListening) {
+      (recognitionRef.current as any)?.stop?.();
+    }
+  };
+
+  const handleMicMouseLeave = () => {
+    if (isListening) {
+      (recognitionRef.current as any)?.stop?.();
+    }
+  };
+
+  // Handle copy button with better error handling
   const handleCopy = async () => {
     if (!correctedText) return;
     try {
-      await navigator.clipboard.writeText(correctedText);
+      // Check if clipboard API is available
+      if (!navigator.clipboard) {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = correctedText;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      } else {
+        await navigator.clipboard.writeText(correctedText);
+      }
       setIsCopied(true);
       toast.success('已複製到剪貼簿');
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
-      toast.error('複製失敗，請重試');
+      console.error('Copy error:', err);
+      toast.error('複製失敗：' + (err instanceof Error ? err.message : '請檢查瀏覽器權限'));
     }
   };
 
@@ -212,9 +234,13 @@ export default function VoiceInput() {
         pipWindow.document.body.appendChild(container.cloneNode(true));
 
         // Re-attach event listeners to the cloned container
-        const clonedMicBtn = pipWindow.document.querySelector('[data-mic-button]');
+        const clonedMicBtn = pipWindow.document.querySelector('[data-mic-button]') as HTMLElement;
         if (clonedMicBtn) {
-          clonedMicBtn.addEventListener('click', handleMicClick);
+          clonedMicBtn.addEventListener('mousedown', handleMicMouseDown);
+          clonedMicBtn.addEventListener('mouseup', handleMicMouseUp);
+          clonedMicBtn.addEventListener('mouseleave', handleMicMouseLeave);
+          clonedMicBtn.addEventListener('touchstart', handleMicMouseDown);
+          clonedMicBtn.addEventListener('touchend', handleMicMouseUp);
         }
 
         pipWindow.addEventListener('pagehide', () => {
@@ -261,18 +287,22 @@ export default function VoiceInput() {
             <div className="flex flex-col items-center gap-6">
               <Button
                 data-mic-button
-                onClick={handleMicClick}
+                onMouseDown={handleMicMouseDown}
+                onMouseUp={handleMicMouseUp}
+                onMouseLeave={handleMicMouseLeave}
+                onTouchStart={handleMicMouseDown}
+                onTouchEnd={handleMicMouseUp}
                 disabled={isProcessing}
-                className={`w-24 h-24 rounded-full shadow-lg transition-all transform ${
+                className={`w-24 h-24 rounded-full shadow-lg transition-all transform active:scale-95 ${
                   isListening
                     ? 'bg-red-500 hover:bg-red-600 scale-110 animate-pulse'
                     : 'bg-primary hover:bg-pink-700'
-                } text-white text-4xl`}
+                } text-white text-4xl select-none`}
               >
                 <Mic className="w-10 h-10" />
               </Button>
 
-              {/* Audio Visualization */}
+              {/* Audio Visualization or Loading Spinner */}
               {isListening && (
                 <div className="flex items-center justify-center gap-1 h-16 w-full">
                   {audioLevels.map((level, i) => (
@@ -285,6 +315,13 @@ export default function VoiceInput() {
                       }}
                     />
                   ))}
+                </div>
+              )}
+              {isProcessing && !isListening && (
+                <div className="flex items-center justify-center gap-3 h-16 w-full">
+                  <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-3 h-3 bg-accent rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-3 h-3 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
               )}
 
