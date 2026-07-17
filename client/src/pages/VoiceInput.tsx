@@ -36,12 +36,14 @@ export default function VoiceInput() {
   const [audioLevels, setAudioLevels] = useState<number[]>(Array(20).fill(0));
   const [error, setError] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const recognitionRef = useRef<SpeechRecognitionType | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // tRPC mutation for AI correction
   const correctMutation = (trpc as any).voice?.correct?.useMutation?.() || { mutateAsync: async () => ({ corrected: originalText }) };
@@ -76,17 +78,29 @@ export default function VoiceInput() {
       setIsProcessing(true);
 
       try {
+        // Cancel any previous request
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        abortControllerRef.current = new AbortController();
+
         const result = await correctMutation.mutateAsync({ text: transcript });
         setCorrectedText(result.corrected);
         setStatus('✅ 修正完成！已自動複製');
         setIsCopied(false);
 
         // Auto-copy to clipboard
-        navigator.clipboard.writeText(result.corrected).then(() => {
+        navigator.clipboard.writeText(result.corrected).catch(() => {
+          // Silently fail if clipboard is not available
+        }).then(() => {
           setIsCopied(true);
-          toast.success('已複製到剪貼簿，按 Ctrl+V 貼上');
+          toast.success('已複製到剪貼簿');
         });
       } catch (err) {
+        // Don't show error if request was aborted
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
         const errorMsg = err instanceof Error ? err.message : '修正失敗，請重試';
         setError(errorMsg);
         setStatus('❌ 修正失敗');
@@ -110,7 +124,9 @@ export default function VoiceInput() {
       setError(errorMsg);
       setStatus('❌ 語音辨識失敗');
       toast.error(errorMsg);
+      setIsListening(false);
       stopAudioVisualization();
+      setRetryCount(0);
     };
 
     recognition.onend = () => {
@@ -177,19 +193,34 @@ export default function VoiceInput() {
   // Handle microphone button - start on mouse/touch down, stop on mouse/touch up
   const handleMicMouseDown = () => {
     if (!isListening && !isProcessing) {
-      (recognitionRef.current as any)?.start?.();
+      setError(null);
+      setRetryCount(0);
+      try {
+        (recognitionRef.current as any)?.start?.();
+      } catch (err) {
+        console.error('Failed to start recognition:', err);
+        setError('無法啟動語音辨識，請重新整理頁面');
+      }
     }
   };
 
   const handleMicMouseUp = () => {
     if (isListening) {
-      (recognitionRef.current as any)?.stop?.();
+      try {
+        (recognitionRef.current as any)?.stop?.();
+      } catch (err) {
+        console.error('Failed to stop recognition:', err);
+      }
     }
   };
 
   const handleMicMouseLeave = () => {
     if (isListening) {
-      (recognitionRef.current as any)?.stop?.();
+      try {
+        (recognitionRef.current as any)?.stop?.();
+      } catch (err) {
+        console.error('Failed to stop recognition:', err);
+      }
     }
   };
 
