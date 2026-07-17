@@ -57,11 +57,16 @@ export default function VoiceInput() {
     }
 
     const recognition = new SpeechRecognitionAPI() as SpeechRecognitionType;
-    recognition.lang = 'yue-Hant-HK'; // Cantonese (Hong Kong)
+    // Try multiple language codes for better compatibility
+    const langCodes = ['yue-Hant-HK', 'yue', 'zh-HK', 'zh-Hant-HK', 'zh-CN'];
+    recognition.lang = langCodes[0];
     recognition.interimResults = false;
     recognition.continuous = false;
+    (recognition as any).maxAlternatives = 1;
+    console.log('[Speech Recognition] Initialized with lang:', recognition.lang);
 
     recognition.onstart = () => {
+      console.log('[Speech Recognition] Started listening');
       setIsListening(true);
       setStatus('聆聽中...');
       setError(null);
@@ -73,6 +78,7 @@ export default function VoiceInput() {
 
     recognition.onresult = async (event: RecognitionEvent) => {
       const transcript = event.results[0]?.[0]?.transcript || '';
+      console.log('[Speech Recognition] Result:', transcript);
       setOriginalText(transcript);
       setStatus('AI 正在修正錯別字...');
       setIsProcessing(true);
@@ -84,7 +90,9 @@ export default function VoiceInput() {
         }
         abortControllerRef.current = new AbortController();
 
+        console.log('[tRPC] Calling voice.correct with text:', transcript);
         const result = await correctMutation.mutateAsync({ text: transcript });
+        console.log('[tRPC] Result:', result);
         setCorrectedText(result.corrected);
         setStatus('✅ 修正完成！已自動複製');
         setIsCopied(false);
@@ -113,12 +121,15 @@ export default function VoiceInput() {
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error('[Speech Recognition Error]', event.error, event);
       const errorMessages: Record<string, string> = {
         'no-speech': '未偵測到語音，請重試',
         'audio-capture': '無法存取麥克風，請檢查權限',
         'network': '網路連線錯誤，請重試',
         'aborted': '錄音已中止，請重試',
         'service-not-allowed': '語音辨識服務不可用',
+        'bad-grammar': '語音辨識失敗，請重試',
+        'network-error': '網路連接錯誤，請検查網路',
       };
       const errorMsg = errorMessages[event.error] || `語音辨識錯誤: ${event.error}`;
       setError(errorMsg);
