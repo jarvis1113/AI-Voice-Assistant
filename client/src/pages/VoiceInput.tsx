@@ -351,10 +351,10 @@ export default function VoiceInput() {
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Mic className="w-8 h-8 text-pink-500" />
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-800">廣東話語音輸入</h1>
+            <Mic className="w-8 h-8 rounded-md p-1" style={{ backgroundColor: '#8dced3', color: '#143f43' }} />
+            <h1 className="text-3xl md:text-4xl font-bold" style={{ color: '#216c72' }}>廣東話語音輸入</h1>
           </div>
-          <p className="text-gray-600">AI 修正錯別字，並轉換為標準書面語</p>
+          <p className="text-gray-600" style={{fontSize: '21px'}}>錯字修正，並轉換為標準書面語</p>
         </div>
 
         <Card className="shadow-lg border-0">
@@ -375,8 +375,8 @@ export default function VoiceInput() {
             )}
 
             <div className="text-center mb-8" aria-live="polite">
-              <p className="text-gray-600 text-sm mb-2">狀態</p>
-              <p className="text-lg font-semibold text-gray-800">{status}</p>
+              <p className="text-gray-600 text-sm mb-2" style={{fontSize: '21px'}}>狀態</p>
+              <p className="text-lg font-semibold text-gray-800" style={{fontSize: '24px'}}>{status}</p>
             </div>
 
             <div className="flex justify-center mb-8">
@@ -392,9 +392,9 @@ export default function VoiceInput() {
                   isRecording
                     ? 'bg-pink-500 hover:bg-pink-600 shadow-lg scale-105'
                     : 'bg-pink-400 hover:bg-pink-500 hover:scale-110 active:scale-95'
-                }`}
+                } border-2 border-[#143f43] hover:brightness-95`} style={{ backgroundColor: '#8dced3' }}
               >
-                {isProcessing ? <Loader2 className="w-12 h-12 text-white animate-spin" /> : <Mic className="w-12 h-12 text-white" />}
+                {isProcessing ? <Loader2 className="w-12 h-12 text-[#143f43] animate-spin" /> : <Mic className="w-12 h-12 text-[#143f43]" />}
               </Button>
             </div>
 
@@ -412,14 +412,14 @@ export default function VoiceInput() {
 
             {originalText && (
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">辨識文字</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontSize: '20px'}}>辨識文字</label>
                 <Textarea value={originalText} readOnly className="bg-gray-50 border-gray-200" rows={3} />
               </div>
             )}
 
             {correctedText && (
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">書面語文字</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontSize: '20px'}}>轉換文字</label>
                 <div className="relative">
                   <Textarea value={correctedText} readOnly className="bg-green-50 border-green-200" rows={3} />
                   <Button onClick={() => void handleCopy(window)} size="sm" variant="outline" className="absolute bottom-2 right-2">
