@@ -1,34 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { trpc } from '@/lib/trpc';
-import { Mic, Copy, Volume2, AlertCircle, CheckCircle2 } from 'lucide-react';
-
-type RecognitionEvent = Event & {
-  results: SpeechRecognitionResultList;
-};
-
-type SpeechRecognitionErrorEvent = Event & {
-  error: string;
-};
-
-type SpeechRecognitionType = {
-  lang: string;
-  interimResults: boolean;
-  continuous: boolean;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-  onstart: ((event: Event) => void) | null;
-  onresult: ((event: RecognitionEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-  onend: ((event: Event) => void) | null;
-};
+import { Mic, Copy, Volume2, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
 export default function VoiceInput() {
-  const [isListening, setIsListening] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [originalText, setOriginalText] = useState('');
   const [correctedText, setCorrectedText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -36,396 +17,328 @@ export default function VoiceInput() {
   const [audioLevels, setAudioLevels] = useState<number[]>(Array(20).fill(0));
   const [error, setError] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
 
-  const recognitionRef = useRef<SpeechRecognitionType | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // tRPC mutation for AI correction
+  // tRPC mutations
   const correctMutation = (trpc as any).voice?.correct?.useMutation?.() || { mutateAsync: async () => ({ corrected: originalText }) };
+  const transcribeMutation = (trpc as any).voice?.transcribe?.useMutation?.() || { mutateAsync: async () => ({ text: '' }) };
 
-  // Initialize Web Speech API
-  useEffect(() => {
-    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognitionAPI) {
-      setError('你的瀏覽器不支援語音輸入功能。請使用最新版 Chrome、Safari 或 Edge。');
-      return;
+  // Initialize audio context and analyzer
+  const initializeAudioContext = async (stream: MediaStream) => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
 
-    const recognition = new SpeechRecognitionAPI() as SpeechRecognitionType;
-    // Use zh-HK which has better Chrome support than yue-Hant-HK
-    recognition.lang = 'zh-HK';
-    recognition.interimResults = false;
-    recognition.continuous = false;
-    (recognition as any).maxAlternatives = 1;
-    console.log('[Speech Recognition] Initialized with lang:', recognition.lang);
-
-    recognition.onstart = () => {
-      console.log('[Speech Recognition] Started listening');
-      setIsListening(true);
-      setStatus('聆聽中...');
-      setError(null);
-      setOriginalText('');
-      setCorrectedText('');
-      setIsCopied(false);
-      startAudioVisualization();
-    };
-
-    recognition.onresult = async (event: RecognitionEvent) => {
-      const transcript = event.results[0]?.[0]?.transcript || '';
-      console.log('[Speech Recognition] Result:', transcript);
-      setOriginalText(transcript);
-      setStatus('AI 正在修正錯別字...');
-      setIsProcessing(true);
-
-      try {
-        // Cancel any previous request
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort();
-        }
-        abortControllerRef.current = new AbortController();
-
-        console.log('[tRPC] Calling voice.correct with text:', transcript);
-        const result = await correctMutation.mutateAsync({ text: transcript });
-        console.log('[tRPC] Result:', result);
-        setCorrectedText(result.corrected);
-        setStatus('✅ 修正完成！已自動複製');
-        setIsCopied(false);
-
-        // Auto-copy to clipboard
-        navigator.clipboard.writeText(result.corrected).catch(() => {
-          // Silently fail if clipboard is not available
-        }).then(() => {
-          setIsCopied(true);
-          toast.success('已複製到剪貼簿');
-        });
-      } catch (err) {
-        // Don't show error if request was aborted
-        if (err instanceof Error && err.name === 'AbortError') {
-          return;
-        }
-        const errorMsg = err instanceof Error ? err.message : '修正失敗，請重試';
-        setError(errorMsg);
-        setStatus('❌ 修正失敗');
-        setCorrectedText(transcript); // Fallback to original text
-        toast.error(errorMsg);
-      } finally {
-        setIsProcessing(false);
-        stopAudioVisualization();
-      }
-    };
-
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error('[Speech Recognition Error]', event.error, event);
-      const errorMessages: Record<string, string> = {
-        'no-speech': '未偵測到語音，請重試',
-        'audio-capture': '無法存取麥克風，請檢查權限',
-        'network': '網路連線錯誤，請重試',
-        'aborted': '錄音已中止，請重試',
-        'service-not-allowed': '語音辨識服務不可用',
-        'bad-grammar': '語音辨識失敗，請重試',
-        'network-error': '網路連接錯誤，請検查網路',
-      };
-      const errorMsg = errorMessages[event.error] || `語音辨識錯誤: ${event.error}`;
-      setError(errorMsg);
-      setStatus('❌ 語音辨識失敗');
-      toast.error(errorMsg);
-      setIsListening(false);
-      stopAudioVisualization();
-      setRetryCount(0);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-      stopAudioVisualization();
-    };
-
-    recognitionRef.current = recognition as any;
-
-    return () => {
-      if (recognitionRef.current) {
-        (recognitionRef.current as any).abort?.();
-      }
-      stopAudioVisualization();
-    };
-  }, [correctMutation]);
+    const source = audioContextRef.current.createMediaStreamSource(stream);
+    const analyser = audioContextRef.current.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+    analyserRef.current = analyser;
+  };
 
   // Start audio visualization
-  const startAudioVisualization = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
+  const startAudioVisualization = () => {
+    if (!analyserRef.current) return;
 
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-
-      const audioContext = audioContextRef.current;
-      const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-
-      source.connect(analyser);
-      analyserRef.current = analyser;
-
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      const updateLevels = () => {
-        analyser.getByteFrequencyData(dataArray);
-        const levels = Array.from(dataArray.slice(0, 20)).map(v => (v / 255) * 100);
-        setAudioLevels(levels);
-        animationFrameRef.current = requestAnimationFrame(updateLevels);
-      };
-
-      updateLevels();
-    } catch (err) {
-      console.error('Failed to access microphone:', err);
-      setError('無法存取麥克風，請檢查權限');
-    }
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    const animate = () => {
+      analyserRef.current!.getByteFrequencyData(dataArray);
+      const levels = Array.from(dataArray.slice(0, 20)).map(v => (v / 255) * 100);
+      setAudioLevels(levels);
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+    animate();
   };
 
   // Stop audio visualization
   const stopAudioVisualization = () => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
-    }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      animationFrameRef.current = null;
     }
     setAudioLevels(Array(20).fill(0));
   };
 
-  // Handle microphone button - start on mouse/touch down, stop on mouse/touch up
-  const handleMicMouseDown = () => {
-    if (!isListening && !isProcessing) {
-      setError(null);
-      setRetryCount(0);
-      try {
-        (recognitionRef.current as any)?.start?.();
-      } catch (err) {
-        console.error('Failed to start recognition:', err);
-        setError('無法啟動語音辨識，請重新整理頁面');
-      }
-    }
-  };
-
-  const handleMicMouseUp = () => {
-    if (isListening) {
-      try {
-        (recognitionRef.current as any)?.stop?.();
-      } catch (err) {
-        console.error('Failed to stop recognition:', err);
-      }
-    }
-  };
-
-  const handleMicMouseLeave = () => {
-    if (isListening) {
-      try {
-        (recognitionRef.current as any)?.stop?.();
-      } catch (err) {
-        console.error('Failed to stop recognition:', err);
-      }
-    }
-  };
-
-  // Handle copy button with better error handling
-  const handleCopy = async () => {
-    if (!correctedText) return;
+  // Start recording
+  const handleMicMouseDown = async () => {
     try {
-      // Check if clipboard API is available
-      if (!navigator.clipboard) {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = correctedText;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-      } else {
-        await navigator.clipboard.writeText(correctedText);
-      }
+      setError(null);
+      setOriginalText('');
+      setCorrectedText('');
+      setStatus('正在請求麥克風權限...');
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+
+      await initializeAudioContext(stream);
+      startAudioVisualization();
+
+      audioChunksRef.current = [];
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType });
+
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+      setStatus('聆聽中...');
+      console.log('[MediaRecorder] Started recording');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : '無法存取麥克風';
+      console.error('[MediaRecorder Error]', err);
+      setError(`麥克風錯誤：${errorMsg}`);
+      setStatus('❌ 麥克風錯誤');
+      toast.error(errorMsg);
+    }
+  };
+
+  // Stop recording and process audio
+  const handleMicMouseUp = async () => {
+    if (!mediaRecorderRef.current || !isRecording) return;
+
+    try {
+      stopAudioVisualization();
+
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      setStatus('正在處理音頻...');
+
+      mediaRecorderRef.current.onstop = async () => {
+        try {
+          const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorderRef.current!.mimeType });
+          console.log('[MediaRecorder] Audio blob size:', audioBlob.size);
+
+              // Upload audio blob to storage and get URL
+              setStatus('正在上傳音頻...');
+              const formData = new FormData();
+              formData.append('file', audioBlob, `recording-${Date.now()}.webm`);
+              
+              // For now, create a blob URL for transcription
+              const audioUrl = URL.createObjectURL(audioBlob);
+              
+              // Call backend to transcribe
+              setStatus('AI 正在轉錄語音...');
+              const result = await transcribeMutation.mutateAsync({ audioUrl });
+          
+          if (!result.text) {
+            throw new Error('無法識別語音，請重試');
+          }
+          
+          // Clean up blob URL
+          URL.revokeObjectURL(audioUrl);
+
+          console.log('[Transcription] Result:', result.text);
+          setOriginalText(result.text);
+          setStatus('AI 正在修正錯別字...');
+
+          // Correct text
+          const correctionResult = await correctMutation.mutateAsync({ text: result.text });
+          setCorrectedText(correctionResult.corrected);
+          setStatus('✅ 修正完成！已自動複製');
+
+          // Copy to clipboard
+          try {
+            await navigator.clipboard.writeText(correctionResult.corrected);
+            setIsCopied(true);
+            toast.success('已複製到剪貼簿');
+          } catch {
+            console.warn('[Clipboard] Failed to copy');
+          }
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : '處理失敗';
+          console.error('[Processing Error]', err);
+          setError(errorMsg);
+          setStatus('❌ 處理失敗');
+          toast.error(errorMsg);
+        } finally {
+          setIsProcessing(false);
+          // Stop media stream
+          if (mediaStreamRef.current) {
+            mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            mediaStreamRef.current = null;
+          }
+        }
+      };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : '錄音停止失敗';
+      console.error('[Stop Recording Error]', err);
+      setError(errorMsg);
+      setStatus('❌ 錄音停止失敗');
+      toast.error(errorMsg);
+    }
+  };
+
+  // Copy to clipboard
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(correctedText || originalText);
       setIsCopied(true);
       toast.success('已複製到剪貼簿');
       setTimeout(() => setIsCopied(false), 2000);
-    } catch (err) {
-      console.error('Copy error:', err);
-      toast.error('複製失敗：' + (err instanceof Error ? err.message : '請檢查瀏覽器權限'));
+    } catch {
+      toast.error('複製失敗，請手動複製');
     }
   };
 
-  // Handle Picture-in-Picture
+  // Picture-in-Picture
   const handlePictureInPicture = async () => {
-    const container = document.getElementById('voice-input-container');
-    if (!container) return;
-
     try {
-      if ('documentPictureInPicture' in window) {
-        const pipWindow = await (window as any).documentPictureInPicture.requestWindow({
-          width: 380,
-          height: 600,
-        });
-        pipWindow.document.body.style.margin = '0';
-        pipWindow.document.body.style.padding = '16px';
-        pipWindow.document.body.style.fontFamily = 'system-ui, -apple-system, sans-serif';
-        pipWindow.document.body.style.backgroundColor = '#FAFBFC';
+      const container = document.querySelector('[data-pip-container]') as HTMLElement;
+      if (container && 'documentPictureInPicture' in window) {
+        const pipWindow = await (window as any).documentPictureInPicture.requestWindow();
         pipWindow.document.body.appendChild(container.cloneNode(true));
-
-        // Re-attach event listeners to the cloned container
-        const clonedMicBtn = pipWindow.document.querySelector('[data-mic-button]') as HTMLElement;
-        if (clonedMicBtn) {
-          clonedMicBtn.addEventListener('mousedown', handleMicMouseDown);
-          clonedMicBtn.addEventListener('mouseup', handleMicMouseUp);
-          clonedMicBtn.addEventListener('mouseleave', handleMicMouseLeave);
-          clonedMicBtn.addEventListener('touchstart', handleMicMouseDown);
-          clonedMicBtn.addEventListener('touchend', handleMicMouseUp);
-        }
-
-        pipWindow.addEventListener('pagehide', () => {
-          document.getElementById('voice-input-container')?.appendChild(container);
-        });
-      } else {
-        toast.error('你的瀏覽器不支援懸浮小視窗功能');
+        toast.success('已打開懸浮視窗');
       }
     } catch (err) {
-      console.error('PiP error:', err);
-      toast.error('開啟懸浮視窗失敗');
+      console.error('[PiP Error]', err);
+      toast.error('懸浮視窗不支援');
     }
   };
 
   return (
-    <div id="voice-input-container" className="min-h-screen bg-gradient-to-br from-blue-50 via-pink-50 to-green-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-blue-50 to-green-50 p-4 md:p-8">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">🎙️ 廣東話語音輸入</h1>
-          <p className="text-muted-foreground text-lg">AI 自動修正錯別字，幫你說得更準確</p>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Mic className="w-8 h-8 text-pink-500" />
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-800">廣東話語音輸入</h1>
+          </div>
+          <p className="text-gray-600">AI 自動修正錯別字，幫你說得更準確</p>
         </div>
 
         {/* Main Card */}
-        <Card className="shadow-lg border-0 mb-6">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-2xl">語音輸入工具</CardTitle>
+        <Card className="shadow-lg border-0 data-pip-container" data-pip-container>
+          <CardHeader className="bg-gradient-to-r from-pink-100 to-blue-100">
+            <CardTitle>語音輸入工具</CardTitle>
             <CardDescription>按住麥克風按鈕說話，鬆開即可完成輸入</CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-6">
-            {/* Error Display */}
+          <CardContent className="pt-8">
+            {/* Error Alert */}
             {error && (
-              <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-red-900">出現問題</p>
+                  <p className="font-medium text-red-900">出現問題</p>
                   <p className="text-red-700 text-sm">{error}</p>
                 </div>
               </div>
             )}
 
-            {/* Microphone Button with Audio Visualization */}
-            <div className="flex flex-col items-center gap-6">
+            {/* Status */}
+            <div className="text-center mb-8">
+              <p className="text-gray-600 text-sm mb-2">狀態</p>
+              <p className="text-lg font-semibold text-gray-800">{status}</p>
+            </div>
+
+            {/* Microphone Button */}
+            <div className="flex justify-center mb-8">
               <Button
-                data-mic-button
                 onMouseDown={handleMicMouseDown}
                 onMouseUp={handleMicMouseUp}
-                onMouseLeave={handleMicMouseLeave}
                 onTouchStart={handleMicMouseDown}
                 onTouchEnd={handleMicMouseUp}
                 disabled={isProcessing}
-                className={`w-24 h-24 rounded-full shadow-lg transition-all transform active:scale-95 hover:scale-110 hover:shadow-xl ${
-                  isListening
-                    ? 'bg-red-500 hover:bg-red-600 scale-110 animate-pulse'
-                    : 'bg-primary hover:bg-pink-700'
-                } text-white text-4xl select-none`}
+                className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-200 ${
+                  isRecording
+                    ? 'bg-pink-500 hover:bg-pink-600 shadow-lg scale-105'
+                    : 'bg-pink-400 hover:bg-pink-500 hover:scale-110 active:scale-95'
+                }`}
               >
-                <Mic className="w-10 h-10" />
+                {isProcessing ? (
+                  <Loader2 className="w-12 h-12 text-white animate-spin" />
+                ) : (
+                  <Mic className="w-12 h-12 text-white" />
+                )}
               </Button>
-
-              {/* Audio Visualization or Loading Spinner */}
-              {isListening && (
-                <div className="flex items-center justify-center gap-1 h-16 w-full">
-                  {audioLevels.map((level, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 bg-gradient-to-t from-primary to-pink-300 rounded-full transition-all"
-                      style={{
-                        height: `${Math.max(10, level * 2)}%`,
-                        minHeight: '8px',
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-              {isProcessing && !isListening && (
-                <div className="flex items-center justify-center gap-3 h-16 w-full">
-                  <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-3 h-3 bg-accent rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-3 h-3 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
-              )}
-
-              {/* Status Text */}
-              <p className="text-center font-semibold text-foreground text-lg">{status}</p>
             </div>
 
-            {/* Original Text Display */}
+            {/* Audio Visualization */}
+            {isRecording && (
+              <div className="flex items-center justify-center gap-1 mb-8 h-16">
+                {audioLevels.map((level, i) => (
+                  <div
+                    key={i}
+                    className="bg-gradient-to-t from-pink-500 to-pink-300 rounded-full transition-all duration-75"
+                    style={{
+                      width: '6px',
+                      height: `${Math.max(8, level * 0.6)}px`,
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Original Text */}
             {originalText && (
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-foreground">原始語音：</label>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">原始文字</label>
                 <Textarea
                   value={originalText}
                   readOnly
-                  className="bg-gray-50 border-gray-200 text-foreground resize-none"
+                  className="bg-gray-50 border-gray-200"
                   rows={3}
                 />
               </div>
             )}
 
-            {/* Corrected Text Display */}
+            {/* Corrected Text */}
             {correctedText && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-sm font-semibold text-foreground flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-green-600" />
-                    AI 修正後 (已自動複製)：
-                  </label>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">修正後文字</label>
+                <div className="relative">
+                  <Textarea
+                    value={correctedText}
+                    readOnly
+                    className="bg-green-50 border-green-200"
+                    rows={3}
+                  />
                   <Button
                     onClick={handleCopy}
-                    variant="outline"
                     size="sm"
-                    className={`gap-2 transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${isCopied ? 'bg-green-50 border-green-300' : ''}`}
+                    variant="outline"
+                    className="absolute bottom-2 right-2"
                   >
-                    <Copy className="w-4 h-4" />
-                    {isCopied ? '✓ 已複製' : '複製'}
+                    {isCopied ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 mr-1 text-green-600" />
+                        已複製
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 mr-1" />
+                        複製
+                      </>
+                    )}
                   </Button>
                 </div>
-                <Textarea
-                  value={correctedText}
-                  readOnly
-                  className="bg-green-50 border-green-200 text-foreground font-semibold resize-none"
-                  rows={3}
-                />
-
               </div>
             )}
 
             {/* Picture-in-Picture Button */}
-            <Button
-              onClick={handlePictureInPicture}
-              variant="outline"
-              className="w-full gap-2 border-primary text-primary hover:bg-pink-50 transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95"
-            >
-              <Volume2 className="w-4 h-4" />
-              🪟 懸浮小視窗
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handlePictureInPicture}
+                variant="outline"
+                className="flex-1"
+              >
+                <Volume2 className="w-4 h-4 mr-2" />
+                懸浮小視窗
+              </Button>
+            </div>
           </CardContent>
         </Card>
-
-
       </div>
     </div>
   );

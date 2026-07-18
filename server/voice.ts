@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { publicProcedure, router } from './_core/trpc';
 import { invokeLLM } from './_core/llm';
+import { transcribeAudio } from './_core/voiceTranscription';
 import { TRPCError } from '@trpc/server';
 
 const CORRECTION_TIMEOUT_MS = 5000;
@@ -96,6 +97,33 @@ async function correctCantonese(text: string): Promise<string> {
 }
 
 export const voiceRouter = router({
+  transcribe: publicProcedure
+    .input(
+      z.object({
+        audioUrl: z.string().url('Invalid audio URL'),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const result = await transcribeAudio({
+          audioUrl: input.audioUrl,
+          language: 'yue',
+          prompt: 'Cantonese speech input',
+        });
+
+        return {
+          text: (result as any).text || '',
+          language: (result as any).language || 'yue',
+          success: true,
+        };
+      } catch (error) {
+        console.error('[Voice Transcription] Error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : 'Transcription failed',
+        });
+      }
+    }),
   correct: publicProcedure
     .input(
       z.object({
