@@ -1,7 +1,18 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { flushSync } from 'react-dom';
+import { createRoot, type Root } from 'react-dom/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { VoicePictureInPicture } from '@/components/VoicePictureInPicture';
+import {
+  completePictureInPictureMount,
+  copyDocumentStyles,
+  createPictureInPictureMountContainer,
+  DocumentPictureInPictureSession,
+  getDocumentPictureInPictureApi,
+  waitForPictureInPictureFrame,
+} from '@/lib/pictureInPicture';
 import { toast } from 'sonner';
 import { trpc } from '@/lib/trpc';
 import { Mic, Copy, Volume2, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
@@ -35,6 +46,9 @@ export default function VoiceInput() {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const pointerHeldRef = useRef(false);
   const processingRef = useRef(false);
+  const pictureInPictureSessionRef = useRef<DocumentPictureInPictureSession | null>(null);
+  const pictureInPictureRootRef = useRef<Root | null>(null);
+  const [isPictureInPictureOpen, setIsPictureInPictureOpen] = useState(false);
 
   const correctMutation = trpc.voice.correct.useMutation();
   const transcribeMutation = trpc.voice.transcribe.useMutation();
@@ -229,26 +243,106 @@ export default function VoiceInput() {
     }
   };
 
+  const cleanupPictureInPicture = useCallback(() => {
+    const root = pictureInPictureRootRef.current;
+    pictureInPictureRootRef.current = null;
+    root?.unmount();
+    pictureInPictureSessionRef.current = null;
+    setIsPictureInPictureOpen(false);
+  }, []);
+
+  const closePictureInPicture = useCallback(() => {
+    const session = pictureInPictureSessionRef.current;
+    if (session) {
+      session.close();
+      return;
+    }
+    cleanupPictureInPicture();
+  }, [cleanupPictureInPicture]);
+
+  const renderPictureInPicture = (synchronously = false) => {
+    const root = pictureInPictureRootRef.current;
+    if (!root) return;
+
+    const render = () => {
+      root.render(
+        <VoicePictureInPicture
+          isRecording={isRecording}
+          isProcessing={isProcessing}
+          isCopied={isCopied}
+          status={status}
+          error={error}
+          originalText={originalText}
+          correctedText={correctedText}
+          onMicPointerDown={handleMicPointerDown}
+          onMicPointerUp={handleMicPointerUp}
+          onMicPointerCancel={stopRecording}
+          onCopy={handleCopy}
+          onClose={closePictureInPicture}
+        />,
+      );
+    };
+
+    if (synchronously) {
+      flushSync(render);
+      return;
+    }
+    render();
+  };
+
   const handlePictureInPicture = async () => {
     try {
-      const pictureInPicture = (window as any).documentPictureInPicture;
-      if (!pictureInPicture?.requestWindow) {
-        toast.error('此 Chrome 版本未支援懸浮小視窗');
+      const pictureInPicture = getDocumentPictureInPictureApi();
+      if (!pictureInPicture) {
+        toast.error('目前瀏覽器未支援懸浮小視窗，請使用最新版 Chrome');
         return;
       }
-      await pictureInPicture.requestWindow({ width: 420, height: 300 });
-      toast.message('懸浮小視窗功能會在錄音流程驗證完成後開放。');
+
+      const session = pictureInPictureSessionRef.current ?? new DocumentPictureInPictureSession(pictureInPicture, {
+        width: 420,
+        height: 560,
+        onOpen: () => undefined,
+        onClose: cleanupPictureInPicture,
+      });
+      pictureInPictureSessionRef.current = session;
+
+      const { pictureInPictureWindow, opened } = await session.open();
+      if (!opened) return;
+
+      copyDocumentStyles(document, pictureInPictureWindow.document);
+      pictureInPictureWindow.document.title = '廣東話語音輸入';
+      pictureInPictureWindow.document.documentElement.className = document.documentElement.className;
+      pictureInPictureWindow.document.documentElement.style.colorScheme = document.documentElement.style.colorScheme;
+      pictureInPictureWindow.document.body.className = '';
+      pictureInPictureWindow.document.body.style.cssText = 'margin:0; min-height:100vh; background:#ffffff; color:#1f2937;';
+
+      const container = createPictureInPictureMountContainer(pictureInPictureWindow.document);
+
+      await waitForPictureInPictureFrame(pictureInPictureWindow);
+
+      const root = createRoot(container);
+      pictureInPictureRootRef.current = root;
+
+      setIsPictureInPictureOpen(true);
+      completePictureInPictureMount(container, () => renderPictureInPicture(true));
+      toast.success('已開啟懸浮小視窗');
     } catch (caughtError) {
       console.error('[Picture-in-Picture]', caughtError);
+      closePictureInPicture();
       toast.error('未能開啟懸浮小視窗');
     }
   };
 
+  useEffect(() => {
+    renderPictureInPicture();
+  }, [isRecording, isProcessing, isCopied, status, error, originalText, correctedText]);
+
   useEffect(() => () => {
+    closePictureInPicture();
     stopAudioVisualization();
     releaseMicrophone();
     void audioContextRef.current?.close();
-  }, []);
+  }, [closePictureInPicture]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-blue-50 to-green-50 p-4 md:p-8">
@@ -335,7 +429,7 @@ export default function VoiceInput() {
 
             <Button onClick={handlePictureInPicture} variant="outline" className="w-full">
               <Volume2 className="w-4 h-4 mr-2" />
-              懸浮小視窗
+              {isPictureInPictureOpen ? '懸浮小視窗已開啟' : '開啟懸浮小視窗'}
             </Button>
           </CardContent>
         </Card>
