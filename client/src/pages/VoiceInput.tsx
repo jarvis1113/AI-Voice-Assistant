@@ -57,9 +57,8 @@ export default function VoiceInput() {
     }
 
     const recognition = new SpeechRecognitionAPI() as SpeechRecognitionType;
-    // Try multiple language codes for better compatibility
-    const langCodes = ['yue-Hant-HK', 'yue', 'zh-HK', 'zh-Hant-HK', 'zh-CN'];
-    recognition.lang = langCodes[0];
+    // Use zh-HK which has better Chrome support than yue-Hant-HK
+    recognition.lang = 'zh-HK';
     recognition.interimResults = false;
     recognition.continuous = false;
     (recognition as any).maxAlternatives = 1;
