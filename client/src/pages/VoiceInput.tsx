@@ -104,7 +104,7 @@ export default function VoiceInput() {
       }
 
       setOriginalText(transcript.text);
-      setStatus('正在修正錯別字…');
+      setStatus('正在修正並轉換為書面語…');
       const correction = await correctMutation.mutateAsync({ text: transcript.text });
       const finalText = correction.corrected || transcript.text;
       setCorrectedText(finalText);
@@ -112,12 +112,12 @@ export default function VoiceInput() {
       try {
         await navigator.clipboard.writeText(finalText);
         setIsCopied(true);
-        toast.success('修正結果已複製');
+        toast.success('書面語文字已複製');
       } catch {
-        toast.message('修正完成，請按「複製」按鈕');
+        toast.message('書面語轉換完成，請按「複製」按鈕');
       }
 
-      setStatus('修正完成');
+      setStatus('書面語轉換完成');
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : '錄音處理未能完成，請再試一次。';
       console.error('[Voice Processing]', caughtError);
@@ -258,13 +258,13 @@ export default function VoiceInput() {
             <Mic className="w-8 h-8 text-pink-500" />
             <h1 className="text-3xl md:text-4xl font-bold text-gray-800">廣東話語音輸入</h1>
           </div>
-          <p className="text-gray-600">AI 自動修正錯別字，幫你說得更準確</p>
+          <p className="text-gray-600">AI 修正錯別字，並轉換為標準書面語</p>
         </div>
 
         <Card className="shadow-lg border-0">
           <CardHeader className="bg-gradient-to-r from-pink-100 to-blue-100">
             <CardTitle>語音輸入工具</CardTitle>
-            <CardDescription>按住麥克風按鈕說話，放開後會自動轉錄與修正。</CardDescription>
+            <CardDescription>按住麥克風按鈕說話，放開後會自動轉錄為書面語。</CardDescription>
           </CardHeader>
 
           <CardContent className="pt-8">
@@ -316,14 +316,14 @@ export default function VoiceInput() {
 
             {originalText && (
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">原始文字</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">辨識文字</label>
                 <Textarea value={originalText} readOnly className="bg-gray-50 border-gray-200" rows={3} />
               </div>
             )}
 
             {correctedText && (
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">修正後文字</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">書面語文字</label>
                 <div className="relative">
                   <Textarea value={correctedText} readOnly className="bg-green-50 border-green-200" rows={3} />
                   <Button onClick={handleCopy} size="sm" variant="outline" className="absolute bottom-2 right-2">
