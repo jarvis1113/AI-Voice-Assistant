@@ -1,6 +1,4 @@
-'use client';
-
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,12 +6,23 @@ import { toast } from 'sonner';
 import { trpc } from '@/lib/trpc';
 import { Mic, Copy, Volume2, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
+const MAX_AUDIO_BYTES = 16 * 1024 * 1024;
+
+function readBlobAsDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('無法讀取錄音資料'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 export default function VoiceInput() {
   const [isRecording, setIsRecording] = useState(false);
   const [originalText, setOriginalText] = useState('');
   const [correctedText, setCorrectedText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [status, setStatus] = useState('準備就緒');
+  const [status, setStatus] = useState('按住麥克風開始說話');
   const [audioLevels, setAudioLevels] = useState<number[]>(Array(20).fill(0));
   const [error, setError] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
@@ -24,15 +33,45 @@ export default function VoiceInput() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const pointerHeldRef = useRef(false);
+  const processingRef = useRef(false);
 
-  // tRPC mutations
-  const correctMutation = (trpc as any).voice?.correct?.useMutation?.() || { mutateAsync: async () => ({ corrected: originalText }) };
-  const transcribeMutation = (trpc as any).voice?.transcribe?.useMutation?.() || { mutateAsync: async () => ({ text: '' }) };
+  const correctMutation = trpc.voice.correct.useMutation();
+  const transcribeMutation = trpc.voice.transcribe.useMutation();
 
-  // Initialize audio context and analyzer
+  const releaseMicrophone = () => {
+    mediaStreamRef.current?.getTracks().forEach(track => track.stop());
+    mediaStreamRef.current = null;
+  };
+
+  const stopAudioVisualization = () => {
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    setAudioLevels(Array(20).fill(0));
+  };
+
+  const startAudioVisualization = () => {
+    if (!analyserRef.current) return;
+
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    const animate = () => {
+      if (!analyserRef.current) return;
+      analyserRef.current.getByteFrequencyData(dataArray);
+      setAudioLevels(Array.from(dataArray.slice(0, 20), value => (value / 255) * 100));
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+    animate();
+  };
+
   const initializeAudioContext = async (stream: MediaStream) => {
     if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContextConstructor = window.AudioContext || (window as any).webkitAudioContext;
+      audioContextRef.current = new AudioContextConstructor();
+    }
+    if (audioContextRef.current.state === 'suspended') {
+      await audioContextRef.current.resume();
     }
 
     const source = audioContextRef.current.createMediaStreamSource(stream);
@@ -42,175 +81,178 @@ export default function VoiceInput() {
     analyserRef.current = analyser;
   };
 
-  // Start audio visualization
-  const startAudioVisualization = () => {
-    if (!analyserRef.current) return;
-
-    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-    const animate = () => {
-      analyserRef.current!.getByteFrequencyData(dataArray);
-      const levels = Array.from(dataArray.slice(0, 20)).map(v => (v / 255) * 100);
-      setAudioLevels(levels);
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-    animate();
-  };
-
-  // Stop audio visualization
-  const stopAudioVisualization = () => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    setAudioLevels(Array(20).fill(0));
-  };
-
-  // Start recording
-  const handleMicMouseDown = async () => {
+  const processRecording = async (audioBlob: Blob, mimeType: string) => {
     try {
-      setError(null);
-      setOriginalText('');
-      setCorrectedText('');
-      setStatus('正在請求麥克風權限...');
+      if (audioBlob.size === 0) {
+        throw new Error('沒有錄到聲音，請再試一次。');
+      }
+      if (audioBlob.size > MAX_AUDIO_BYTES) {
+        throw new Error('錄音太長，請分段說話後再試。');
+      }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setStatus('正在上傳錄音…');
+      const audioBase64 = await readBlobAsDataUrl(audioBlob);
+
+      setStatus('正在轉錄廣東話…');
+      const transcript = await transcribeMutation.mutateAsync({
+        audioBase64,
+        mimeType,
+      });
+
+      if (!transcript.text?.trim()) {
+        throw new Error('未能聽清楚內容，請按住按鈕說話至少一秒後再放開。');
+      }
+
+      setOriginalText(transcript.text);
+      setStatus('正在修正錯別字…');
+      const correction = await correctMutation.mutateAsync({ text: transcript.text });
+      const finalText = correction.corrected || transcript.text;
+      setCorrectedText(finalText);
+
+      try {
+        await navigator.clipboard.writeText(finalText);
+        setIsCopied(true);
+        toast.success('修正結果已複製');
+      } catch {
+        toast.message('修正完成，請按「複製」按鈕');
+      }
+
+      setStatus('修正完成');
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : '錄音處理未能完成，請再試一次。';
+      console.error('[Voice Processing]', caughtError);
+      setError(message);
+      setStatus('未能完成轉錄');
+      toast.error(message);
+    } finally {
+      processingRef.current = false;
+      setIsProcessing(false);
+      releaseMicrophone();
+    }
+  };
+
+  const stopRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    pointerHeldRef.current = false;
+    if (!recorder || recorder.state === 'inactive') return;
+
+    stopAudioVisualization();
+    setIsRecording(false);
+    processingRef.current = true;
+    setIsProcessing(true);
+    setStatus('正在整理錄音…');
+    recorder.stop();
+  };
+
+  const handleMicPointerDown = async (event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    if (isRecording || processingRef.current || isProcessing) return;
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setError('這個瀏覽器不支援錄音功能，請使用最新版 Chrome。');
+      setStatus('瀏覽器不支援錄音');
+      return;
+    }
+
+    pointerHeldRef.current = true;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    setError(null);
+    setOriginalText('');
+    setCorrectedText('');
+    setIsCopied(false);
+    setStatus('正在啟動麥克風…');
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
       mediaStreamRef.current = stream;
-
       await initializeAudioContext(stream);
-      startAudioVisualization();
+
+      const preferredMimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
+        .find(candidate => MediaRecorder.isTypeSupported(candidate));
+      const recorder = preferredMimeType
+        ? new MediaRecorder(stream, { mimeType: preferredMimeType })
+        : new MediaRecorder(stream);
 
       audioChunksRef.current = [];
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType });
-
-      mediaRecorderRef.current.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
-        }
+      recorder.ondataavailable = recordEvent => {
+        if (recordEvent.data.size > 0) audioChunksRef.current.push(recordEvent.data);
+      };
+      recorder.onerror = () => {
+        setError('錄音裝置暫時發生問題，請再試一次。');
+        setStatus('錄音未能開始');
+      };
+      recorder.onstop = () => {
+        const recordedMimeType = recorder.mimeType.split(';')[0] || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: recordedMimeType });
+        mediaRecorderRef.current = null;
+        void processRecording(audioBlob, recordedMimeType);
       };
 
-      mediaRecorderRef.current.start();
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      startAudioVisualization();
       setIsRecording(true);
-      setStatus('聆聽中...');
-      console.log('[MediaRecorder] Started recording');
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : '無法存取麥克風';
-      console.error('[MediaRecorder Error]', err);
-      setError(`麥克風錯誤：${errorMsg}`);
-      setStatus('❌ 麥克風錯誤');
-      toast.error(errorMsg);
+      setStatus('聆聽中…放開按鈕即可完成');
+
+      // A user can release the pointer while Chrome is still asking for microphone access.
+      if (!pointerHeldRef.current) stopRecording();
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : '無法存取麥克風';
+      console.error('[Microphone]', caughtError);
+      setError(`麥克風未能啟動：${message}`);
+      setStatus('麥克風未能啟動');
+      releaseMicrophone();
     }
   };
 
-  // Stop recording and process audio
-  const handleMicMouseUp = async () => {
-    if (!mediaRecorderRef.current || !isRecording) return;
-
-    try {
-      stopAudioVisualization();
-
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      setStatus('正在處理音頻...');
-
-      mediaRecorderRef.current.onstop = async () => {
-        try {
-          const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorderRef.current!.mimeType });
-          console.log('[MediaRecorder] Audio blob size:', audioBlob.size);
-
-              // Upload audio blob to storage and get URL
-              setStatus('正在上傳音頻...');
-              
-              // Convert blob to base64 for transmission
-              const reader = new FileReader();
-              const audioBase64 = await new Promise<string>((resolve, reject) => {
-                reader.onload = () => resolve(reader.result as string);
-                reader.onerror = reject;
-                reader.readAsDataURL(audioBlob);
-              });
-              
-              // Call backend to transcribe
-              setStatus('AI 正在轉錄語音...');
-              const result = await transcribeMutation.mutateAsync({ audioBase64 });
-          
-          if (!result.text) {
-            throw new Error('無法識別語音，請重試');
-          }
-          
-          // No cleanup needed for base64
-
-          console.log('[Transcription] Result:', result.text);
-          setOriginalText(result.text);
-          setStatus('AI 正在修正錯別字...');
-
-          // Correct text
-          const correctionResult = await correctMutation.mutateAsync({ text: result.text });
-          setCorrectedText(correctionResult.corrected);
-          setStatus('✅ 修正完成！已自動複製');
-
-          // Copy to clipboard
-          try {
-            await navigator.clipboard.writeText(correctionResult.corrected);
-            setIsCopied(true);
-            toast.success('已複製到剪貼簿');
-          } catch {
-            console.warn('[Clipboard] Failed to copy');
-          }
-        } catch (err) {
-          const errorMsg = err instanceof Error ? err.message : '處理失敗';
-          console.error('[Processing Error]', err);
-          setError(errorMsg);
-          setStatus('❌ 處理失敗');
-          toast.error(errorMsg);
-        } finally {
-          setIsProcessing(false);
-          // Stop media stream
-          if (mediaStreamRef.current) {
-            mediaStreamRef.current.getTracks().forEach(track => track.stop());
-            mediaStreamRef.current = null;
-          }
-        }
-      };
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : '錄音停止失敗';
-      console.error('[Stop Recording Error]', err);
-      setError(errorMsg);
-      setStatus('❌ 錄音停止失敗');
-      toast.error(errorMsg);
-    }
+  const handleMicPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    stopRecording();
   };
 
-  // Copy to clipboard
   const handleCopy = async () => {
+    const textToCopy = correctedText || originalText;
+    if (!textToCopy) return;
     try {
-      await navigator.clipboard.writeText(correctedText || originalText);
+      await navigator.clipboard.writeText(textToCopy);
       setIsCopied(true);
       toast.success('已複製到剪貼簿');
-      setTimeout(() => setIsCopied(false), 2000);
+      window.setTimeout(() => setIsCopied(false), 2000);
     } catch {
       toast.error('複製失敗，請手動複製');
     }
   };
 
-  // Picture-in-Picture
   const handlePictureInPicture = async () => {
     try {
-      const container = document.querySelector('[data-pip-container]') as HTMLElement;
-      if (container && 'documentPictureInPicture' in window) {
-        const pipWindow = await (window as any).documentPictureInPicture.requestWindow();
-        pipWindow.document.body.appendChild(container.cloneNode(true));
-        toast.success('已打開懸浮視窗');
+      const pictureInPicture = (window as any).documentPictureInPicture;
+      if (!pictureInPicture?.requestWindow) {
+        toast.error('此 Chrome 版本未支援懸浮小視窗');
+        return;
       }
-    } catch (err) {
-      console.error('[PiP Error]', err);
-      toast.error('懸浮視窗不支援');
+      await pictureInPicture.requestWindow({ width: 420, height: 300 });
+      toast.message('懸浮小視窗功能會在錄音流程驗證完成後開放。');
+    } catch (caughtError) {
+      console.error('[Picture-in-Picture]', caughtError);
+      toast.error('未能開啟懸浮小視窗');
     }
   };
+
+  useEffect(() => () => {
+    stopAudioVisualization();
+    releaseMicrophone();
+    void audioContextRef.current?.close();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-blue-50 to-green-50 p-4 md:p-8">
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Mic className="w-8 h-8 text-pink-500" />
@@ -219,17 +261,15 @@ export default function VoiceInput() {
           <p className="text-gray-600">AI 自動修正錯別字，幫你說得更準確</p>
         </div>
 
-        {/* Main Card */}
-        <Card className="shadow-lg border-0 data-pip-container" data-pip-container>
+        <Card className="shadow-lg border-0">
           <CardHeader className="bg-gradient-to-r from-pink-100 to-blue-100">
             <CardTitle>語音輸入工具</CardTitle>
-            <CardDescription>按住麥克風按鈕說話，鬆開即可完成輸入</CardDescription>
+            <CardDescription>按住麥克風按鈕說話，放開後會自動轉錄與修正。</CardDescription>
           </CardHeader>
 
           <CardContent className="pt-8">
-            {/* Error Alert */}
             {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3">
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3" role="alert">
                 <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium text-red-900">出現問題</p>
@@ -238,107 +278,65 @@ export default function VoiceInput() {
               </div>
             )}
 
-            {/* Status */}
-            <div className="text-center mb-8">
+            <div className="text-center mb-8" aria-live="polite">
               <p className="text-gray-600 text-sm mb-2">狀態</p>
               <p className="text-lg font-semibold text-gray-800">{status}</p>
             </div>
 
-            {/* Microphone Button */}
             <div className="flex justify-center mb-8">
               <Button
-                onMouseDown={handleMicMouseDown}
-                onMouseUp={handleMicMouseUp}
-                onTouchStart={handleMicMouseDown}
-                onTouchEnd={handleMicMouseUp}
+                type="button"
+                onPointerDown={handleMicPointerDown}
+                onPointerUp={handleMicPointerUp}
+                onPointerCancel={stopRecording}
+                onContextMenu={event => event.preventDefault()}
                 disabled={isProcessing}
-                className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-200 ${
+                aria-label={isRecording ? '放開以完成錄音' : '按住以開始錄音'}
+                className={`w-32 h-32 rounded-full touch-none select-none flex items-center justify-center transition-all duration-200 ${
                   isRecording
                     ? 'bg-pink-500 hover:bg-pink-600 shadow-lg scale-105'
                     : 'bg-pink-400 hover:bg-pink-500 hover:scale-110 active:scale-95'
                 }`}
               >
-                {isProcessing ? (
-                  <Loader2 className="w-12 h-12 text-white animate-spin" />
-                ) : (
-                  <Mic className="w-12 h-12 text-white" />
-                )}
+                {isProcessing ? <Loader2 className="w-12 h-12 text-white animate-spin" /> : <Mic className="w-12 h-12 text-white" />}
               </Button>
             </div>
 
-            {/* Audio Visualization */}
             {isRecording && (
-              <div className="flex items-center justify-center gap-1 mb-8 h-16">
-                {audioLevels.map((level, i) => (
+              <div className="flex items-center justify-center gap-1 mb-8 h-16" aria-label="正在收音">
+                {audioLevels.map((level, index) => (
                   <div
-                    key={i}
+                    key={index}
                     className="bg-gradient-to-t from-pink-500 to-pink-300 rounded-full transition-all duration-75"
-                    style={{
-                      width: '6px',
-                      height: `${Math.max(8, level * 0.6)}px`,
-                    }}
+                    style={{ width: '6px', height: `${Math.max(8, level * 0.6)}px` }}
                   />
                 ))}
               </div>
             )}
 
-            {/* Original Text */}
             {originalText && (
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">原始文字</label>
-                <Textarea
-                  value={originalText}
-                  readOnly
-                  className="bg-gray-50 border-gray-200"
-                  rows={3}
-                />
+                <Textarea value={originalText} readOnly className="bg-gray-50 border-gray-200" rows={3} />
               </div>
             )}
 
-            {/* Corrected Text */}
             {correctedText && (
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">修正後文字</label>
                 <div className="relative">
-                  <Textarea
-                    value={correctedText}
-                    readOnly
-                    className="bg-green-50 border-green-200"
-                    rows={3}
-                  />
-                  <Button
-                    onClick={handleCopy}
-                    size="sm"
-                    variant="outline"
-                    className="absolute bottom-2 right-2"
-                  >
-                    {isCopied ? (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 mr-1 text-green-600" />
-                        已複製
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4 mr-1" />
-                        複製
-                      </>
-                    )}
+                  <Textarea value={correctedText} readOnly className="bg-green-50 border-green-200" rows={3} />
+                  <Button onClick={handleCopy} size="sm" variant="outline" className="absolute bottom-2 right-2">
+                    {isCopied ? <><CheckCircle2 className="w-4 h-4 mr-1 text-green-600" />已複製</> : <><Copy className="w-4 h-4 mr-1" />複製</>}
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* Picture-in-Picture Button */}
-            <div className="flex gap-2">
-              <Button
-                onClick={handlePictureInPicture}
-                variant="outline"
-                className="flex-1"
-              >
-                <Volume2 className="w-4 h-4 mr-2" />
-                懸浮小視窗
-              </Button>
-            </div>
+            <Button onClick={handlePictureInPicture} variant="outline" className="w-full">
+              <Volume2 className="w-4 h-4 mr-2" />
+              懸浮小視窗
+            </Button>
           </CardContent>
         </Card>
       </div>

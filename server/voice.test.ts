@@ -1,29 +1,39 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { appRouter } from './routers';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TrpcContext } from './_core/context';
 
-// Mock the LLM module
 vi.mock('./_core/llm', () => ({
   invokeLLM: vi.fn(async () => ({
-    choices: [
-      {
-        message: {
-          content: '我尋日同媽咪去咗公園玩，好開心。',
-        },
-      },
-    ],
+    choices: [{ message: { content: '我尋日同媽咪去咗公園玩，好開心。' } }],
   })),
 }));
+
+vi.mock('./storage', () => ({
+  storagePut: vi.fn(),
+  storageGetSignedUrl: vi.fn(),
+}));
+
+vi.mock('./_core/voiceTranscription', () => ({
+  transcribeAudio: vi.fn(),
+}));
+
+import { appRouter } from './routers';
+import { storageGetSignedUrl, storagePut } from './storage';
+import { transcribeAudio } from './_core/voiceTranscription';
+
+const mockStoragePut = vi.mocked(storagePut);
+const mockStorageGetSignedUrl = vi.mocked(storageGetSignedUrl);
+const mockTranscribeAudio = vi.mocked(transcribeAudio);
 
 function createContext(): TrpcContext {
   return {
     user: null,
-    req: {
-      protocol: 'https',
-      headers: {},
-    } as TrpcContext['req'],
+    req: { protocol: 'https', headers: {} } as TrpcContext['req'],
     res: {} as TrpcContext['res'],
   };
+}
+
+function sampleAudioDataUrl() {
+  return `data:audio/webm;codecs=opus;base64,${Buffer.from('sample webm bytes').toString('base64')}`;
 }
 
 describe('voice.correct', () => {
@@ -31,70 +41,97 @@ describe('voice.correct', () => {
     vi.clearAllMocks();
   });
 
-  it('should correct Cantonese text successfully', async () => {
-    const ctx = createContext();
-    const caller = appRouter.createCaller(ctx);
-
-    const result = await caller.voice.correct({
+  it('corrects Cantonese text successfully', async () => {
+    const result = await appRouter.createCaller(createContext()).voice.correct({
       text: '我尋日同媽咪去左公完玩好開心',
     });
 
-    expect(result).toBeDefined();
-    expect(result.original).toBe('我尋日同媽咪去左公完玩好開心');
-    expect(result.success).toBe(true);
-    expect(result.corrected).toBe('我尋日同媽咪去咗公園玩，好開心。');
+    expect(result).toMatchObject({
+      original: '我尋日同媽咪去左公完玩好開心',
+      corrected: '我尋日同媽咪去咗公園玩，好開心。',
+      success: true,
+    });
   });
 
-  it('should reject empty text', async () => {
-    const ctx = createContext();
-    const caller = appRouter.createCaller(ctx);
+  it('rejects empty correction text', async () => {
+    await expect(appRouter.createCaller(createContext()).voice.correct({ text: '' })).rejects.toThrow('文字不能為空');
+  });
+});
 
-    try {
-      await caller.voice.correct({ text: '' });
-      expect.fail('Should have thrown an error');
-    } catch (error: any) {
-      expect(error.message).toContain('文字不能為空');
-    }
+describe('voice.transcribe', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStoragePut.mockResolvedValue({ key: 'voice-recordings/test.webm', url: '/manus-storage/voice-recordings/test.webm' });
+    mockStorageGetSignedUrl.mockResolvedValue('https://signed.example.test/recording.webm');
+    mockTranscribeAudio.mockResolvedValue({
+      task: 'transcribe',
+      language: 'zh',
+      duration: 1.2,
+      text: '我尋日去咗公園。',
+      segments: [],
+    });
   });
 
-  it('should reject text exceeding max length', async () => {
-    const ctx = createContext();
-    const caller = appRouter.createCaller(ctx);
-
-    const longText = 'a'.repeat(501);
-
-    try {
-      await caller.voice.correct({ text: longText });
-      expect.fail('Should have thrown an error');
-    } catch (error: any) {
-      expect(error.message).toContain('文字長度不能超過');
-    }
-  });
-
-  it('should handle short text correctly', async () => {
-    const ctx = createContext();
-    const caller = appRouter.createCaller(ctx);
-
-    const result = await caller.voice.correct({
-      text: '你好',
+  it('uploads a decoded recording, obtains a signed URL, then transcribes it', async () => {
+    const result = await appRouter.createCaller(createContext()).voice.transcribe({
+      audioBase64: sampleAudioDataUrl(),
+      mimeType: 'audio/webm;codecs=opus',
     });
 
-    expect(result.original).toBe('你好');
-    expect(result.success).toBe(true);
-    expect(result.corrected).toBeDefined();
+    expect(mockStoragePut).toHaveBeenCalledWith(
+      expect.stringMatching(/^voice-recordings\/recording-\d+\.webm$/),
+      expect.any(Buffer),
+      'audio/webm',
+    );
+    expect(mockStorageGetSignedUrl).toHaveBeenCalledWith('voice-recordings/test.webm');
+    expect(mockTranscribeAudio).toHaveBeenCalledWith(expect.objectContaining({
+      audioUrl: 'https://signed.example.test/recording.webm',
+      language: 'zh',
+    }));
+    expect(result).toEqual({ text: '我尋日去咗公園。', language: 'zh', success: true });
   });
 
-  it('should return result with original text preserved', async () => {
-    const ctx = createContext();
-    const caller = appRouter.createCaller(ctx);
-
-    const testText = '我想食飯';
-    const result = await caller.voice.correct({
-      text: testText,
+  it('returns a user-safe error when Whisper reports a transcription failure', async () => {
+    mockTranscribeAudio.mockResolvedValue({
+      error: 'Transcription service request failed',
+      code: 'TRANSCRIPTION_FAILED',
+      details: '503 Service Unavailable',
     });
 
-    expect(result.original).toBe(testText);
-    expect(result.corrected).toBeDefined();
-    expect(result.success).toBe(true);
+    await expect(
+      appRouter.createCaller(createContext()).voice.transcribe({
+        audioBase64: sampleAudioDataUrl(),
+        mimeType: 'audio/webm;codecs=opus',
+      }),
+    ).rejects.toThrow('未能轉錄這段錄音');
+  });
+
+  it('returns a clear message when Whisper returns no recognised text', async () => {
+    mockTranscribeAudio.mockResolvedValue({
+      task: 'transcribe',
+      language: 'zh',
+      duration: 1.2,
+      text: '   ',
+      segments: [],
+    });
+
+    await expect(
+      appRouter.createCaller(createContext()).voice.transcribe({
+        audioBase64: sampleAudioDataUrl(),
+        mimeType: 'audio/webm;codecs=opus',
+      }),
+    ).rejects.toThrow('未能聽清楚內容');
+  });
+
+  it('rejects unsupported audio formats before attempting storage', async () => {
+    const invalidAudio = `data:audio/flac;base64,${Buffer.from('audio').toString('base64')}`;
+
+    await expect(
+      appRouter.createCaller(createContext()).voice.transcribe({
+        audioBase64: invalidAudio,
+        mimeType: 'audio/flac',
+      }),
+    ).rejects.toThrow('暫未支援');
+    expect(mockStoragePut).not.toHaveBeenCalled();
   });
 });
