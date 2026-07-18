@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { VoicePictureInPicture } from '@/components/VoicePictureInPicture';
+import { copyTextToWindowClipboard } from '@/lib/clipboard';
 import {
   completePictureInPictureMount,
   copyDocumentStyles,
@@ -230,17 +231,18 @@ export default function VoiceInput() {
     stopRecording();
   };
 
-  const handleCopy = async () => {
+  const handleCopy = async (targetWindow: Window | null = window) => {
     const textToCopy = correctedText || originalText;
     if (!textToCopy) return;
-    try {
-      await navigator.clipboard.writeText(textToCopy);
+    const copyResult = await copyTextToWindowClipboard(targetWindow ?? window, textToCopy);
+    if (copyResult !== 'failed') {
       setIsCopied(true);
       toast.success('已複製到剪貼簿');
       window.setTimeout(() => setIsCopied(false), 2000);
-    } catch {
-      toast.error('複製失敗，請手動複製');
+      return;
     }
+
+    toast.error('複製失敗，請手動複製');
   };
 
   const cleanupPictureInPicture = useCallback(() => {
@@ -420,7 +422,7 @@ export default function VoiceInput() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">書面語文字</label>
                 <div className="relative">
                   <Textarea value={correctedText} readOnly className="bg-green-50 border-green-200" rows={3} />
-                  <Button onClick={handleCopy} size="sm" variant="outline" className="absolute bottom-2 right-2">
+                  <Button onClick={() => void handleCopy(window)} size="sm" variant="outline" className="absolute bottom-2 right-2">
                     {isCopied ? <><CheckCircle2 className="w-4 h-4 mr-1 text-green-600" />已複製</> : <><Copy className="w-4 h-4 mr-1" />複製</>}
                   </Button>
                 </div>

@@ -85,3 +85,8 @@
 - [x] 實作 Document Picture-in-Picture 白底修補：以絕對網址同步樣式、等待畫面更新後再掛載，並同步首次 React 渲染
 - [x] 為白底問題新增直接回歸測試：驗證 PiP 容器由 mounting 進入 ready，並由 React 面板取代載入文字
 - [ ] 以支援 Document Picture-in-Picture 的 Chrome 實機確認錄音按鈕、狀態文字與結果區在小視窗內可見，並保存可核對證據
+
+## 懸浮小視窗複製修復（2026-07-18）
+- [x] 修正 Document Picture-in-Picture 視窗中的複製按鈕無法寫入剪貼簿問題
+- [x] 新增複製成功、權限拒絕與回退複製流程的自動化測試
+- [ ] 以支援的 Chrome 實機確認小視窗複製按鈕會將書面語文字寫入剪貼簿

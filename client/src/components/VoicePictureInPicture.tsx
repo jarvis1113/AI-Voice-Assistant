@@ -13,7 +13,7 @@ export type VoicePictureInPictureProps = {
   onMicPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onMicPointerUp: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onMicPointerCancel: () => void;
-  onCopy: () => void;
+  onCopy: (targetWindow: Window | null) => void;
   onClose: () => void;
 };
 
@@ -90,7 +90,13 @@ export function VoicePictureInPicture({
             <div className="mb-1 flex items-center justify-between gap-2">
               <p className="text-xs font-medium text-green-800">{previewLabel}</p>
               {correctedText && (
-                <Button type="button" size="sm" variant="ghost" onClick={onCopy} className="h-7 px-2 text-green-800 hover:bg-green-100">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={event => onCopy(event.currentTarget.ownerDocument.defaultView)}
+                  className="h-7 px-2 text-green-800 hover:bg-green-100"
+                >
                   {isCopied ? <><CheckCircle2 className="mr-1 h-3.5 w-3.5" />已複製</> : <><Copy className="mr-1 h-3.5 w-3.5" />複製</>}
                 </Button>
               )}
