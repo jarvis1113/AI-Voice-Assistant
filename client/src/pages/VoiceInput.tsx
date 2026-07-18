@@ -120,22 +120,24 @@ export default function VoiceInput() {
 
               // Upload audio blob to storage and get URL
               setStatus('正在上傳音頻...');
-              const formData = new FormData();
-              formData.append('file', audioBlob, `recording-${Date.now()}.webm`);
               
-              // For now, create a blob URL for transcription
-              const audioUrl = URL.createObjectURL(audioBlob);
+              // Convert blob to base64 for transmission
+              const reader = new FileReader();
+              const audioBase64 = await new Promise<string>((resolve, reject) => {
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(audioBlob);
+              });
               
               // Call backend to transcribe
               setStatus('AI 正在轉錄語音...');
-              const result = await transcribeMutation.mutateAsync({ audioUrl });
+              const result = await transcribeMutation.mutateAsync({ audioBase64 });
           
           if (!result.text) {
             throw new Error('無法識別語音，請重試');
           }
           
-          // Clean up blob URL
-          URL.revokeObjectURL(audioUrl);
+          // No cleanup needed for base64
 
           console.log('[Transcription] Result:', result.text);
           setOriginalText(result.text);

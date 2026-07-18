@@ -63,7 +63,7 @@ async function correctCantonese(text: string): Promise<string> {
                 content: `請修正以下廣東話文字：\n${text}`,
               },
             ],
-            model: 'gpt-5-mini', // Use fast, cost-effective model for real-time correction
+            model: 'gpt-4o-mini', // Use fast, cost-effective model for real-time correction
           }),
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error('AI 修正超時')), CORRECTION_TIMEOUT_MS)
@@ -100,13 +100,20 @@ export const voiceRouter = router({
   transcribe: publicProcedure
     .input(
       z.object({
-        audioUrl: z.string().url('Invalid audio URL'),
+        audioBase64: z.string().min(1, 'Audio data required'),
       })
     )
     .mutation(async ({ input }) => {
       try {
+        // Extract base64 data
+        const base64Data = input.audioBase64.includes(',') 
+          ? input.audioBase64.split(',')[1] 
+          : input.audioBase64;
+        
+        console.log('[Voice Transcription] Processing audio, size:', base64Data.length);
+        
         const result = await transcribeAudio({
-          audioUrl: input.audioUrl,
+          audioUrl: input.audioBase64,
           language: 'yue',
           prompt: 'Cantonese speech input',
         });
