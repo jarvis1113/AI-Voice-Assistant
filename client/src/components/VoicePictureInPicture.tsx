@@ -76,13 +76,13 @@ export function VoicePictureInPicture({
             onContextMenu={event => event.preventDefault()}
             disabled={isProcessing}
             aria-label={isRecording ? '放開以完成錄音' : '按住以開始錄音'}
-            className={`glass-mic-button h-24 w-24 touch-none select-none rounded-full transition-all duration-200 ${
+            className={`glass-mic-button h-40 w-40 touch-none select-none rounded-full transition-all duration-200 ${
               isRecording
                 ? 'scale-105 ring-8 ring-sky-300/30'
                 : 'hover:scale-105 active:scale-95'
             }`}
           >
-            {isProcessing ? <Loader2 className="h-9 w-9 animate-spin text-[#0f3f55]" /> : <Mic className="h-9 w-9 text-[#0f3f55]" />}
+            {isProcessing ? <Loader2 className="size-[108px] animate-spin text-[#0f3f55]" /> : <Mic className="size-[108px] text-[#0f3f55]" />}
           </Button>
           <p className="mt-3 text-xs text-[#557487]">按住說話，放開後開始處理</p>
         </div>
