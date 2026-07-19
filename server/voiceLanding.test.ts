@@ -15,6 +15,9 @@ describe('Voice landing page', () => {
     expect(markup).toContain('廣東話語音輸入');
     expect(markup).toContain('開啟懸浮視窗');
     expect(markup).toContain('text-[25px]');
+    expect(markup).toContain('hero-glow-button');
+    expect(markup).toContain('hero-glow-button__icon');
+    expect(markup).toContain('data-state="ready"');
     expect(markup).not.toContain('所有語音操作會在懸浮視窗中完成。');
     expect(markup).not.toContain('按住麥克風開始說話');
     expect(markup).not.toContain('辨識文字');
@@ -31,5 +34,6 @@ describe('Voice landing page', () => {
 
     expect(markup).toContain('懸浮視窗已開啟');
     expect(markup).toContain('切換至已開啟的懸浮視窗');
+    expect(markup).toContain('data-state="open"');
   });
 });

@@ -27,11 +27,15 @@ export function VoiceLanding({ isPictureInPictureOpen, onOpenPictureInPicture }:
               type="button"
               onClick={onOpenPictureInPicture}
               variant="outline"
-              className="glass-wide-action h-16 w-full rounded-2xl px-0 text-[25px] font-semibold leading-none"
+              className="hero-glow-button group h-[4.75rem] w-full rounded-[1.35rem] px-5 text-[25px] font-bold leading-none sm:h-20"
               aria-label={isPictureInPictureOpen ? '切換至已開啟的懸浮視窗' : '開啟懸浮視窗'}
+              data-state={isPictureInPictureOpen ? 'open' : 'ready'}
             >
-              <Volume2 className="mr-3 h-6 w-6" />
-              {isPictureInPictureOpen ? '懸浮視窗已開啟' : '開啟懸浮視窗'}
+              <span className="hero-glow-button__icon" aria-hidden="true">
+                <Volume2 className="h-6 w-6" />
+              </span>
+              <span className="hero-glow-button__text">{isPictureInPictureOpen ? '懸浮視窗已開啟' : '開啟懸浮視窗'}</span>
+              <span className="hero-glow-button__arrow" aria-hidden="true">↗</span>
             </Button>
           </CardContent>
         </Card>
