@@ -14,7 +14,8 @@ describe('Voice landing page', () => {
 
     expect(markup).toContain('廣東話語音輸入');
     expect(markup).toContain('開啟懸浮視窗');
-    expect(markup).toContain('所有語音操作會在懸浮視窗中完成。');
+    expect(markup).toContain('text-[25px]');
+    expect(markup).not.toContain('所有語音操作會在懸浮視窗中完成。');
     expect(markup).not.toContain('按住麥克風開始說話');
     expect(markup).not.toContain('辨識文字');
     expect(markup).not.toContain('轉換文字');

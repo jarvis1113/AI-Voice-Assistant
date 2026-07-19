@@ -22,15 +22,12 @@ export function VoiceLanding({ isPictureInPictureOpen, onOpenPictureInPicture }:
         </div>
 
         <Card className="glass-panel overflow-hidden rounded-[2rem] border-0 bg-[#eaf6fb] shadow-none">
-          <CardContent className="px-6 py-8 md:px-8 md:py-10">
-            <p className="mb-7 text-center text-sm leading-6 text-[#557487]">
-              所有語音操作會在懸浮視窗中完成。
-            </p>
+          <CardContent className="rounded-[9px] px-6 py-8 md:px-8 md:py-10">
             <Button
               type="button"
               onClick={onOpenPictureInPicture}
               variant="outline"
-              className="glass-wide-action h-16 w-full rounded-2xl text-xl font-semibold md:text-2xl"
+              className="glass-wide-action h-16 w-full rounded-2xl px-0 text-[25px] font-semibold leading-none"
               aria-label={isPictureInPictureOpen ? '切換至已開啟的懸浮視窗' : '開啟懸浮視窗'}
             >
               <Volume2 className="mr-3 h-6 w-6" />
