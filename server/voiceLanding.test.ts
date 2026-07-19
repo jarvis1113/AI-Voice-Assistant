@@ -16,7 +16,8 @@ describe('Voice landing page', () => {
     expect(markup).toContain('開啟懸浮視窗');
     expect(markup).toContain('text-[25px]');
     expect(markup).toContain('hero-glow-button');
-    expect(markup).toContain('hero-glow-button__icon');
+    expect(markup).toContain('🎙️');
+    expect(markup).not.toContain('hero-glow-button__icon');
     expect(markup).toContain('data-state="ready"');
     expect(markup).not.toContain('hero-glow-button__arrow');
     expect(markup).not.toContain('↗');

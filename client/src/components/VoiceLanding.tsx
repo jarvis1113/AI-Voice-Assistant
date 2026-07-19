@@ -1,5 +1,4 @@
 import React from 'react';
-import { Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -14,9 +13,7 @@ export function VoiceLanding({ isPictureInPictureOpen, onOpenPictureInPicture }:
       <main className="relative z-10 mx-auto w-full max-w-lg">
         <div className="mb-9 text-center">
           <div className="mb-3 flex items-center justify-center gap-3">
-            <div className="glass-subtle flex h-11 w-11 items-center justify-center rounded-2xl" aria-hidden="true">
-              <Volume2 className="h-6 w-6 text-[#155e75]" />
-            </div>
+            <span className="glass-subtle flex h-11 w-11 items-center justify-center rounded-2xl text-2xl leading-none" role="img" aria-label="麥克風">🎙️</span>
             <h1 className="text-3xl font-bold tracking-tight text-[#5498bb] md:text-4xl">廣東話語音輸入</h1>
           </div>
         </div>
@@ -31,9 +28,6 @@ export function VoiceLanding({ isPictureInPictureOpen, onOpenPictureInPicture }:
               aria-label={isPictureInPictureOpen ? '切換至已開啟的懸浮視窗' : '開啟懸浮視窗'}
               data-state={isPictureInPictureOpen ? 'open' : 'ready'}
             >
-              <span className="hero-glow-button__icon" aria-hidden="true">
-                <Volume2 className="h-6 w-6" />
-              </span>
               <span className="hero-glow-button__text">{isPictureInPictureOpen ? '懸浮視窗已開啟' : '開啟懸浮視窗'}</span>
             </Button>
           </CardContent>
