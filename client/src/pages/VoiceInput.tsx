@@ -316,7 +316,7 @@ export default function VoiceInput() {
       pictureInPictureWindow.document.documentElement.className = document.documentElement.className;
       pictureInPictureWindow.document.documentElement.style.colorScheme = document.documentElement.style.colorScheme;
       pictureInPictureWindow.document.body.className = '';
-      pictureInPictureWindow.document.body.style.cssText = 'margin:0; min-height:100vh; background:#ffffff; color:#1f2937;';
+      pictureInPictureWindow.document.body.style.cssText = 'margin:0; min-height:100vh; background:#eaf7ff; color:#153c50;';
 
       const container = createPictureInPictureMountContainer(pictureInPictureWindow.document);
 
@@ -347,39 +347,41 @@ export default function VoiceInput() {
   }, [closePictureInPicture]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-blue-50 to-green-50 p-4 md:p-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Mic className="w-8 h-8 rounded-md p-1" style={{ backgroundColor: '#8dced3', color: '#143f43' }} />
-            <h1 className="text-3xl md:text-4xl font-bold" style={{ color: '#216c72' }}>廣東話語音輸入</h1>
+    <div className="glass-page min-h-screen overflow-hidden px-4 py-8 md:px-8 md:py-12">
+      <div className="relative z-10 mx-auto max-w-2xl">
+        <div className="mb-9 text-center">
+          <div className="mb-3 flex items-center justify-center gap-3">
+            <div className="glass-subtle flex h-11 w-11 items-center justify-center rounded-2xl">
+              <Mic className="h-6 w-6 text-[#155e75]" />
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-[#153c50] md:text-4xl">廣東話語音輸入</h1>
           </div>
-          <p className="text-gray-600" style={{fontSize: '21px'}}>錯字修正，並轉換為標準書面語</p>
+          <p className="text-[#557487]" style={{ fontSize: '21px' }}>錯字修正，並轉換為標準書面語</p>
         </div>
 
-        <Card className="shadow-lg border-0">
-          <CardHeader className="bg-gradient-to-r from-pink-100 to-blue-100">
-            <CardTitle>語音輸入工具</CardTitle>
-            <CardDescription>按住麥克風按鈕說話，放開後會自動轉錄為書面語。</CardDescription>
+        <Card className="glass-panel overflow-hidden rounded-[2rem] border-0 shadow-none">
+          <CardHeader className="border-b border-white/60 bg-white/20 px-6 py-6 md:px-8">
+            <CardTitle className="text-xl text-[#153c50]">語音輸入工具</CardTitle>
+            <CardDescription className="mt-1 text-[#557487]">按住麥克風按鈕說話，放開後會自動轉錄為書面語。</CardDescription>
           </CardHeader>
 
-          <CardContent className="pt-8">
+          <CardContent className="px-6 pb-6 pt-8 md:px-8 md:pb-8">
             {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3" role="alert">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="mb-6 flex gap-3 rounded-2xl border border-rose-200/80 bg-rose-50/65 p-4 shadow-sm backdrop-blur-md" role="alert">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
                 <div>
-                  <p className="font-medium text-red-900">出現問題</p>
-                  <p className="text-red-700 text-sm">{error}</p>
+                  <p className="font-medium text-rose-950">出現問題</p>
+                  <p className="text-sm text-rose-800">{error}</p>
                 </div>
               </div>
             )}
 
-            <div className="text-center mb-8" aria-live="polite">
-              <p className="text-gray-600 text-sm mb-2" style={{fontSize: '21px'}}>狀態</p>
-              <p className="text-lg font-semibold text-gray-800" style={{fontSize: '24px'}}>{status}</p>
+            <div className="glass-subtle mb-8 rounded-2xl px-4 py-4 text-center" aria-live="polite">
+              <p className="mb-1 text-[#557487]" style={{ fontSize: '21px' }}>狀態</p>
+              <p className="font-semibold text-[#153c50]" style={{ fontSize: '24px' }}>{status}</p>
             </div>
 
-            <div className="flex justify-center mb-8">
+            <div className="flex justify-center mb-8">     
               <Button
                 type="button"
                 onPointerDown={handleMicPointerDown}
@@ -388,22 +390,22 @@ export default function VoiceInput() {
                 onContextMenu={event => event.preventDefault()}
                 disabled={isProcessing}
                 aria-label={isRecording ? '放開以完成錄音' : '按住以開始錄音'}
-                className={`w-32 h-32 rounded-full touch-none select-none flex items-center justify-center transition-all duration-200 ${
+                className={`glass-mic-button flex h-32 w-32 touch-none select-none items-center justify-center rounded-full transition-all duration-200 ${
                   isRecording
-                    ? 'bg-pink-500 hover:bg-pink-600 shadow-lg scale-105'
-                    : 'bg-pink-400 hover:bg-pink-500 hover:scale-110 active:scale-95'
-                } border-2 border-[#143f43] hover:brightness-95`} style={{ backgroundColor: '#8dced3' }}
+                    ? 'scale-105 ring-8 ring-sky-300/30'
+                    : 'hover:scale-105 active:scale-95'
+                }`}
               >
-                {isProcessing ? <Loader2 className="w-12 h-12 text-[#143f43] animate-spin" /> : <Mic className="w-12 h-12 text-[#143f43]" />}
+                {isProcessing ? <Loader2 className="h-12 w-12 animate-spin text-[#0f3f55]" /> : <Mic className="h-12 w-12 text-[#0f3f55]" />}
               </Button>
             </div>
 
             {isRecording && (
-              <div className="flex items-center justify-center gap-1 mb-8 h-16" aria-label="正在收音">
+              <div className="glass-subtle mb-8 flex h-16 items-center justify-center gap-1 rounded-2xl" aria-label="正在收音">
                 {audioLevels.map((level, index) => (
                   <div
                     key={index}
-                    className="bg-gradient-to-t from-pink-500 to-pink-300 rounded-full transition-all duration-75"
+                    className="rounded-full bg-gradient-to-t from-cyan-700 via-sky-500 to-sky-200 transition-all duration-75"
                     style={{ width: '6px', height: `${Math.max(8, level * 0.6)}px` }}
                   />
                 ))}
@@ -412,25 +414,25 @@ export default function VoiceInput() {
 
             {originalText && (
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontSize: '20px'}}>辨識文字</label>
-                <Textarea value={originalText} readOnly className="bg-gray-50 border-gray-200" rows={3} />
+                <label className="mb-2 block font-medium text-[#24536b]" style={{ fontSize: '20px' }}>辨識文字</label>
+                <Textarea value={originalText} readOnly className="glass-field min-h-24 rounded-2xl" rows={3} />
               </div>
             )}
 
             {correctedText && (
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontSize: '20px'}}>轉換文字</label>
+                <label className="mb-2 block font-medium text-[#24536b]" style={{ fontSize: '20px' }}>轉換文字</label>
                 <div className="relative">
-                  <Textarea value={correctedText} readOnly className="bg-green-50 border-green-200" rows={3} />
-                  <Button onClick={() => void handleCopy(window)} size="sm" variant="outline" className="absolute bottom-2 right-2">
-                    {isCopied ? <><CheckCircle2 className="w-4 h-4 mr-1 text-green-600" />已複製</> : <><Copy className="w-4 h-4 mr-1" />複製</>}
+                  <Textarea value={correctedText} readOnly className="glass-field min-h-28 rounded-2xl pr-24" rows={3} />
+                  <Button onClick={() => void handleCopy(window)} size="sm" variant="outline" className="glass-action absolute bottom-3 right-3 h-8 rounded-xl px-3">
+                    {isCopied ? <><CheckCircle2 className="mr-1 h-4 w-4 text-cyan-700" />已複製</> : <><Copy className="mr-1 h-4 w-4" />複製</>}
                   </Button>
                 </div>
               </div>
             )}
 
-            <Button onClick={handlePictureInPicture} variant="outline" className="w-full">
-              <Volume2 className="w-4 h-4 mr-2" />
+            <Button onClick={handlePictureInPicture} variant="outline" className="glass-wide-action h-12 w-full rounded-2xl">
+              <Volume2 className="mr-2 h-4 w-4" />
               {isPictureInPictureOpen ? '懸浮小視窗已開啟' : '開啟懸浮小視窗'}
             </Button>
           </CardContent>

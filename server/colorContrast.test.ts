@@ -15,4 +15,9 @@ describe('main page colour contrast', () => {
     expect(contrastRatio('#143f43', '#8dced3')).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio('#216c72', '#ffffff')).toBeGreaterThanOrEqual(3);
   });
+
+  it('requires the light-blue glass interface text and microphone icon to remain readable', () => {
+    expect(contrastRatio('#153c50', '#eaf7ff')).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio('#0f3f55', '#dff4ff')).toBeGreaterThanOrEqual(4.5);
+  });
 });

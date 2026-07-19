@@ -35,15 +35,17 @@ export function VoicePictureInPicture({
   const previewLabel = correctedText ? '書面語文字' : '辨識文字';
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-pink-50 via-blue-50 to-green-50 p-4 text-gray-800">
-      <section className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-md flex-col rounded-3xl bg-white p-4 shadow-lg">
+    <main className="glass-page min-h-screen p-4 text-[#153c50]">
+      <section className="glass-panel mx-auto flex min-h-[calc(100vh-2rem)] max-w-md flex-col rounded-3xl p-4">
         <header className="mb-4 flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <Mic className="h-5 w-5 text-pink-500" />
-              <h1 className="text-base font-bold">廣東話語音輸入</h1>
+              <div className="glass-subtle flex h-8 w-8 items-center justify-center rounded-xl">
+                <Mic className="h-4 w-4 text-[#155e75]" />
+              </div>
+              <h1 className="text-base font-bold text-[#153c50]">廣東話語音輸入</h1>
             </div>
-            <p className="mt-1 text-xs text-gray-500">錄音後自動轉換為書面語</p>
+            <p className="mt-1 text-xs text-[#557487]">錄音後自動轉換為書面語</p>
           </div>
           <Button
             type="button"
@@ -51,21 +53,21 @@ export function VoicePictureInPicture({
             variant="ghost"
             onClick={onClose}
             aria-label="關閉懸浮小視窗"
-            className="shrink-0 rounded-full text-gray-500 hover:bg-pink-50 hover:text-pink-600"
+            className="glass-icon-button shrink-0 rounded-full"
           >
             <X className="h-4 w-4" />
           </Button>
         </header>
 
         {error && (
-          <div className="mb-3 flex gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-left" role="alert">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-            <p className="text-xs leading-5 text-red-800">{error}</p>
+          <div className="mb-3 flex gap-2 rounded-xl border border-rose-200/80 bg-rose-50/65 p-3 text-left shadow-sm backdrop-blur-md" role="alert">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+            <p className="text-xs leading-5 text-rose-800">{error}</p>
           </div>
         )}
 
         <div className="flex flex-1 flex-col items-center justify-center text-center" aria-live="polite">
-          <p className="mb-3 text-sm font-medium text-gray-600">{status}</p>
+          <p className="glass-subtle mb-4 rounded-xl px-3 py-2 text-sm font-medium text-[#24536b]">{status}</p>
           <Button
             type="button"
             onPointerDown={onMicPointerDown}
@@ -74,34 +76,34 @@ export function VoicePictureInPicture({
             onContextMenu={event => event.preventDefault()}
             disabled={isProcessing}
             aria-label={isRecording ? '放開以完成錄音' : '按住以開始錄音'}
-            className={`h-24 w-24 rounded-full touch-none select-none transition-all duration-200 ${
+            className={`glass-mic-button h-24 w-24 touch-none select-none rounded-full transition-all duration-200 ${
               isRecording
-                ? 'bg-pink-500 shadow-lg scale-105 hover:bg-pink-600'
-                : 'bg-pink-400 hover:bg-pink-500 hover:scale-105 active:scale-95'
+                ? 'scale-105 ring-8 ring-sky-300/30'
+                : 'hover:scale-105 active:scale-95'
             }`}
           >
-            {isProcessing ? <Loader2 className="h-9 w-9 animate-spin text-white" /> : <Mic className="h-9 w-9 text-white" />}
+            {isProcessing ? <Loader2 className="h-9 w-9 animate-spin text-[#0f3f55]" /> : <Mic className="h-9 w-9 text-[#0f3f55]" />}
           </Button>
-          <p className="mt-3 text-xs text-gray-500">按住說話，放開後開始處理</p>
+          <p className="mt-3 text-xs text-[#557487]">按住說話，放開後開始處理</p>
         </div>
 
         {previewText && (
-          <div className="mt-4 rounded-2xl bg-green-50 p-3">
+          <div className="glass-subtle mt-4 rounded-2xl p-3">
             <div className="mb-1 flex items-center justify-between gap-2">
-              <p className="text-xs font-medium text-green-800">{previewLabel}</p>
+              <p className="text-xs font-medium text-[#155e75]">{previewLabel}</p>
               {correctedText && (
                 <Button
                   type="button"
                   size="sm"
                   variant="ghost"
                   onClick={event => onCopy(event.currentTarget.ownerDocument.defaultView)}
-                  className="h-7 px-2 text-green-800 hover:bg-green-100"
+                  className="glass-action h-7 rounded-lg px-2 text-xs"
                 >
                   {isCopied ? <><CheckCircle2 className="mr-1 h-3.5 w-3.5" />已複製</> : <><Copy className="mr-1 h-3.5 w-3.5" />複製</>}
                 </Button>
               )}
             </div>
-            <p className="max-h-20 overflow-y-auto break-words text-left text-sm leading-6 text-gray-700">{previewText}</p>
+            <p className="max-h-20 overflow-y-auto break-words text-left text-sm leading-6 text-[#24536b]">{previewText}</p>
           </div>
         )}
       </section>
