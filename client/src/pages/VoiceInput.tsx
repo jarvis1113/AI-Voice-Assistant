@@ -114,14 +114,14 @@ export default function VoiceInput() {
         mimeType,
       });
 
-      if (!transcript.text?.trim()) {
+      if (!transcript.text?.trim() || transcript.text === '請不吝點贊訂閱轉發打賞支持明鏡與點點欄目') {
         throw new Error('未能聽清楚內容，請按住按鈕說話至少一秒後再放開。');
       }
 
       setOriginalText(transcript.text);
       setStatus('正在修正並轉換為書面語…');
       const correction = await correctMutation.mutateAsync({ text: transcript.text });
-      const finalText = correction.corrected || transcript.text;
+      const finalText = (correction.corrected === '請唔好吝嗇你嘅讚好、訂閱、轉發同打賞，支持吓「明鏡與點點」呢個節目啦！' ? '' : correction.corrected) || transcript.text;
       setCorrectedText(finalText);
 
       try {
