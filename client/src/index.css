@@ -243,8 +243,8 @@
     isolation: isolate;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: 0.75rem;
+    justify-content: center;
+    gap: 0.875rem;
     overflow: hidden;
     border: 1px solid rgb(255 255 255 / 0.88) !important;
     background: linear-gradient(118deg, #f9feff 0%, #dff5ff 42%, #b9e8fb 100%) !important;
@@ -293,8 +293,7 @@
   }
 
   .hero-glow-button__icon,
-  .hero-glow-button__text,
-  .hero-glow-button__arrow {
+  .hero-glow-button__text {
     position: relative;
     z-index: 1;
   }
@@ -320,14 +319,6 @@
     text-decoration-thickness: 2px;
     text-underline-offset: 0.28em;
     transition: text-decoration-color 240ms cubic-bezier(0.23, 1, 0.32, 1), color 240ms cubic-bezier(0.23, 1, 0.32, 1);
-  }
-
-  .hero-glow-button__arrow {
-    margin-left: auto;
-    color: #0e7490;
-    font-size: 1.4rem;
-    line-height: 1;
-    transition: transform 240ms cubic-bezier(0.23, 1, 0.32, 1), color 240ms cubic-bezier(0.23, 1, 0.32, 1);
   }
 
   .hero-glow-button:hover:not(:disabled) {
@@ -356,11 +347,6 @@
   .hero-glow-button:hover:not(:disabled) .hero-glow-button__text {
     color: #075985;
     text-decoration-color: currentcolor;
-  }
-
-  .hero-glow-button:hover:not(:disabled) .hero-glow-button__arrow {
-    color: #0369a1;
-    transform: translate3d(0.2rem, -0.2rem, 0);
   }
 
   .hero-glow-button:focus-visible {
@@ -404,8 +390,7 @@
     .hero-glow-button::before,
     .hero-glow-button::after,
     .hero-glow-button__icon,
-    .hero-glow-button__text,
-    .hero-glow-button__arrow {
+    .hero-glow-button__text {
       transition: none;
     }
   }

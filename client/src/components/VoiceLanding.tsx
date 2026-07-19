@@ -35,7 +35,6 @@ export function VoiceLanding({ isPictureInPictureOpen, onOpenPictureInPicture }:
                 <Volume2 className="h-6 w-6" />
               </span>
               <span className="hero-glow-button__text">{isPictureInPictureOpen ? '懸浮視窗已開啟' : '開啟懸浮視窗'}</span>
-              <span className="hero-glow-button__arrow" aria-hidden="true">↗</span>
             </Button>
           </CardContent>
         </Card>
