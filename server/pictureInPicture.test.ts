@@ -174,6 +174,7 @@ describe('Picture-in-Picture panel state', () => {
         isProcessing: false,
         isCopied: true,
         status: '書面語轉換完成',
+        audioLevels: Array(20).fill(0),
         error: null,
         originalText: '我今日去咗學校',
         correctedText: '我今天去了學校。',
@@ -181,7 +182,7 @@ describe('Picture-in-Picture panel state', () => {
     );
 
     expect(markup).toContain('書面語轉換完成');
-    expect(markup).toContain('書面語文字');
+    expect(markup).toContain('轉換文字');
     expect(markup).toContain('我今天去了學校。');
     expect(markup).toContain('已複製');
   });
@@ -194,6 +195,7 @@ describe('Picture-in-Picture panel state', () => {
         isProcessing: false,
         isCopied: false,
         status: '未能完成轉錄',
+        audioLevels: Array(20).fill(0),
         error: '未能轉錄這段錄音，請清楚說話後再試。',
         originalText: '',
         correctedText: '',
@@ -202,5 +204,24 @@ describe('Picture-in-Picture panel state', () => {
 
     expect(markup).toContain('role="alert"');
     expect(markup).toContain('未能轉錄這段錄音，請清楚說話後再試。');
+  });
+
+  it('keeps the audio-level feedback inside the floating window while recording', () => {
+    const markup = renderToStaticMarkup(
+      createElement(VoicePictureInPicture, {
+        ...handlers,
+        isRecording: true,
+        isProcessing: false,
+        isCopied: false,
+        status: '聆聽中…放開按鈕即可完成',
+        audioLevels: [12, 28, 54, 76],
+        error: null,
+        originalText: '',
+        correctedText: '',
+      }),
+    );
+
+    expect(markup).toContain('aria-label="正在收音"');
+    expect(markup).toContain('按住說話，放開後開始處理');
   });
 });

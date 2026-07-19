@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { VoicePictureInPicture } from '@/components/VoicePictureInPicture';
+import { VoiceLanding } from '@/components/VoiceLanding';
 import { copyTextToWindowClipboard } from '@/lib/clipboard';
 import {
   completePictureInPictureMount,
@@ -16,7 +14,6 @@ import {
 } from '@/lib/pictureInPicture';
 import { toast } from 'sonner';
 import { trpc } from '@/lib/trpc';
-import { Mic, Copy, Volume2, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
 const MAX_AUDIO_BYTES = 16 * 1024 * 1024;
 
@@ -273,6 +270,7 @@ export default function VoiceInput() {
           isProcessing={isProcessing}
           isCopied={isCopied}
           status={status}
+          audioLevels={audioLevels}
           error={error}
           originalText={originalText}
           correctedText={correctedText}
@@ -347,97 +345,9 @@ export default function VoiceInput() {
   }, [closePictureInPicture]);
 
   return (
-    <div className="glass-page min-h-screen overflow-hidden px-4 py-8 md:px-8 md:py-12">
-      <div className="relative z-10 mx-auto max-w-2xl">
-        <div className="mb-9 text-center">
-          <div className="mb-3 flex items-center justify-center gap-3">
-            <div className="glass-subtle flex h-11 w-11 items-center justify-center rounded-2xl">
-              <Mic className="h-6 w-6 text-[#155e75]" />
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight text-[#153c50] md:text-4xl" style={{color: '#5498bb'}}>廣東話語音輸入</h1>
-          </div>
-        </div>
-
-        <Card className="glass-panel overflow-hidden rounded-[2rem] border-0 shadow-none" style={{backgroundColor: '#eaf6fb'}}>
-          <CardHeader className="border-b border-white/60 bg-white/20 px-6 py-5 md:px-8">
-            <CardDescription className="m-0 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[#557487]">
-              <span>長按麥克風按鈕說話</span>
-              <span className="text-xs tracking-wide text-[#7a9caf]">Long press</span>
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="px-6 pb-6 pt-8 md:px-8 md:pb-8">
-            {error && (
-              <div className="mb-6 flex gap-3 rounded-2xl border border-rose-200/80 bg-rose-50/65 p-4 shadow-sm backdrop-blur-md" role="alert">
-                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
-                <div>
-                  <p className="font-medium text-rose-950">出現問題</p>
-                  <p className="text-sm text-rose-800">{error}</p>
-                </div>
-              </div>
-            )}
-
-            <div className="glass-subtle mb-8 rounded-2xl px-4 py-4 text-center" aria-live="polite">
-              <p className="font-semibold text-[#153c50]" style={{ fontSize: '24px' }}>{status}</p>
-            </div>
-
-            <div className="flex justify-center mb-8">     
-              <Button
-                type="button"
-                onPointerDown={handleMicPointerDown}
-                onPointerUp={handleMicPointerUp}
-                onPointerCancel={stopRecording}
-                onContextMenu={event => event.preventDefault()}
-                disabled={isProcessing}
-                aria-label={isRecording ? '放開以完成錄音' : '按住以開始錄音'}
-                className={`glass-mic-button flex h-56 w-56 touch-none select-none items-center justify-center rounded-full transition-all duration-200 ${
-                  isRecording
-                    ? 'scale-105 ring-8 ring-sky-300/30'
-                    : 'hover:scale-105 active:scale-95'
-                }`}
-              >
-                {isProcessing ? <Loader2 className="size-36 animate-spin text-[#0f3f55]" /> : <Mic className="size-36 text-[#0f3f55]" />}
-              </Button>
-            </div>
-
-            {isRecording && (
-              <div className="glass-subtle mb-8 flex h-16 items-center justify-center gap-1 rounded-2xl" aria-label="正在收音">
-                {audioLevels.map((level, index) => (
-                  <div
-                    key={index}
-                    className="rounded-full bg-gradient-to-t from-cyan-700 via-sky-500 to-sky-200 transition-all duration-75"
-                    style={{ width: '6px', height: `${Math.max(8, level * 0.6)}px` }}
-                  />
-                ))}
-              </div>
-            )}
-
-            {originalText && (
-              <div className="mb-6">
-                <label className="mb-2 block font-medium text-[#24536b]" style={{ fontSize: '20px' }}>辨識文字</label>
-                <Textarea value={originalText} readOnly className="glass-field min-h-24 rounded-2xl" rows={3} />
-              </div>
-            )}
-
-            {correctedText && (
-              <div className="mb-6">
-                <label className="mb-2 block font-medium text-[#24536b]" style={{ fontSize: '20px' }}>轉換文字</label>
-                <div className="relative">
-                  <Textarea value={correctedText} readOnly className="glass-field min-h-28 rounded-2xl pr-24" rows={3} />
-                  <Button onClick={() => void handleCopy(window)} size="sm" variant="outline" className="glass-action absolute bottom-3 right-3 h-8 rounded-xl px-3">
-                    {isCopied ? <><CheckCircle2 className="mr-1 h-4 w-4 text-cyan-700" />已複製</> : <><Copy className="mr-1 h-4 w-4" />複製</>}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            <Button onClick={handlePictureInPicture} variant="outline" className="glass-wide-action h-12 w-full rounded-2xl" style={{fontSize: '28px'}}>
-              <Volume2 className="mr-2 h-4 w-4" />
-              {isPictureInPictureOpen ? '懸浮視窗已開啟' : '開啟懸浮視窗'}
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    <VoiceLanding
+      isPictureInPictureOpen={isPictureInPictureOpen}
+      onOpenPictureInPicture={() => void handlePictureInPicture()}
+    />
   );
 }

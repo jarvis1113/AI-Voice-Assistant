@@ -7,6 +7,7 @@ export type VoicePictureInPictureProps = {
   isProcessing: boolean;
   isCopied: boolean;
   status: string;
+  audioLevels: number[];
   error: string | null;
   originalText: string;
   correctedText: string;
@@ -22,6 +23,7 @@ export function VoicePictureInPicture({
   isProcessing,
   isCopied,
   status,
+  audioLevels,
   error,
   originalText,
   correctedText,
@@ -32,7 +34,7 @@ export function VoicePictureInPicture({
   onClose,
 }: VoicePictureInPictureProps) {
   const previewText = correctedText || originalText;
-  const previewLabel = correctedText ? '書面語文字' : '辨識文字';
+  const previewLabel = correctedText ? '轉換文字' : '辨識文字';
 
   return (
     <main className="glass-page min-h-screen p-4 text-[#153c50]">
@@ -85,6 +87,17 @@ export function VoicePictureInPicture({
             {isProcessing ? <Loader2 className="size-[108px] animate-spin text-[#0f3f55]" /> : <Mic className="size-[108px] text-[#0f3f55]" />}
           </Button>
           <p className="mt-3 text-xs text-[#557487]">按住說話，放開後開始處理</p>
+          {isRecording && (
+            <div className="glass-subtle mt-4 flex h-11 w-full items-center justify-center gap-1 rounded-xl px-3" aria-label="正在收音">
+              {audioLevels.map((level, index) => (
+                <div
+                  key={index}
+                  className="rounded-full bg-gradient-to-t from-cyan-700 via-sky-500 to-sky-200 transition-all duration-75"
+                  style={{ width: '5px', height: `${Math.max(6, level * 0.34)}px` }}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {previewText && (
