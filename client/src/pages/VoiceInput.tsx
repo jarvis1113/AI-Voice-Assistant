@@ -112,7 +112,7 @@ export default function VoiceInput() {
       });
 
       if (!transcript.text?.trim() || transcript.text === '請不吝點贊訂閱轉發打賞支持明鏡與點點欄目') {
-        throw new Error('未能聽清楚內容，請按住按鈕說話至少一秒後再放開。');
+        throw new Error('未能聽清楚內容。');
       }
 
       setOriginalText(transcript.text);

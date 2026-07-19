@@ -196,14 +196,17 @@ describe('Picture-in-Picture panel state', () => {
         isCopied: false,
         status: '未能完成轉錄',
         audioLevels: Array(20).fill(0),
-        error: '未能轉錄這段錄音，請清楚說話後再試。',
+        error: '未能聽清楚內容。',
         originalText: '',
         correctedText: '',
       }),
     );
 
     expect(markup).toContain('role="alert"');
-    expect(markup).toContain('未能轉錄這段錄音，請清楚說話後再試。');
+    expect(markup).toContain('未能聽清楚內容。');
+    expect(markup).toContain('text-[15.6px]');
+    expect(markup).not.toContain('錄音後自動轉換為書面語');
+    expect(markup).not.toContain('放開後開始處理');
   });
 
   it('keeps the audio-level feedback inside the floating window while recording', () => {
@@ -222,6 +225,7 @@ describe('Picture-in-Picture panel state', () => {
     );
 
     expect(markup).toContain('aria-label="正在收音"');
-    expect(markup).toContain('按住說話，放開後開始處理');
+    expect(markup).not.toContain('錄音後自動轉換為書面語');
+    expect(markup).not.toContain('放開後開始處理');
   });
 });

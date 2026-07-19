@@ -39,7 +39,7 @@ export function VoicePictureInPicture({
   return (
     <main className="glass-page min-h-screen p-4 text-[#153c50]">
       <section className="glass-panel mx-auto flex min-h-[calc(100vh-2rem)] max-w-md flex-col rounded-3xl p-4">
-        <header className="mb-4 flex items-start justify-between gap-3">
+        <header className="mb-3 flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <div className="glass-subtle flex h-8 w-8 items-center justify-center rounded-xl">
@@ -47,7 +47,6 @@ export function VoicePictureInPicture({
               </div>
               <h1 className="text-base font-bold text-[#153c50]">廣東話語音輸入</h1>
             </div>
-            <p className="mt-1 text-xs text-[#557487]">錄音後自動轉換為書面語</p>
           </div>
           <Button
             type="button"
@@ -64,7 +63,7 @@ export function VoicePictureInPicture({
         {error && (
           <div className="mb-3 flex gap-2 rounded-xl border border-rose-200/80 bg-rose-50/65 p-3 text-left shadow-sm backdrop-blur-md" role="alert">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
-            <p className="text-xs leading-5 text-rose-800">{error}</p>
+            <p className="text-[15.6px] leading-6 text-rose-800">{error}</p>
           </div>
         )}
 
@@ -86,7 +85,6 @@ export function VoicePictureInPicture({
           >
             {isProcessing ? <Loader2 className="size-[108px] animate-spin text-[#0f3f55]" /> : <Mic className="size-[108px] text-[#0f3f55]" />}
           </Button>
-          <p className="mt-3 text-xs text-[#557487]">按住說話，放開後開始處理</p>
           {isRecording && (
             <div className="glass-subtle mt-4 flex h-11 w-full items-center justify-center gap-1 rounded-xl px-3" aria-label="正在收音">
               {audioLevels.map((level, index) => (
